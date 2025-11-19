@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the server recovery detection and connection redistribution feature for OJP multinode XA deployments. When a failed OJP server recovers, the system automatically detects the recovery and rebalances connections across all available servers.
+This document describes the server recovery detection and connection redistribution feature for OJP multinode XA deployments. When a failed OJP server recovers, the system automatically detects the recovery, invalidates stale sessions, and rebalances connections across all available servers.
 
 ## Problem Statement
 
@@ -12,11 +12,20 @@ In multinode XA deployments, when a server fails:
 3. When the failed server recovers, it remains idle (receives no connections)
 4. Load imbalance becomes permanent until application restart
 
+**Additional Issue - Session State Loss:**
+
+When a server is killed and resurrected:
+1. Server loses all session state (sessions stored in-memory)
+2. Client-side session bindings persist
+3. Queries sent with old session UUIDs fail with "Connection not found" error
+4. Applications experience failures until connections are manually recreated
+
 **Example:**
 ```
 Initial:  Server1=10, Server2=10, Server3=10 connections
 Failure:  Server2=0 (failed), Server1=15, Server3=15 (redistributed)
 Recovery: Server2=0 (healthy but unused), Server1=15, Server3=15 (still imbalanced)
+          + Old sessions bound to Server2 fail with "Connection not found"
 ```
 
 ## Solution
@@ -24,8 +33,9 @@ Recovery: Server2=0 (healthy but unused), Server1=15, Server3=15 (still imbalanc
 The solution implements:
 1. **Time-based health checks** - Periodically validates unhealthy servers
 2. **Server recovery detection** - Identifies when failed servers become healthy
-3. **Automatic redistribution** - Rebalances connections when servers recover
-4. **Balanced closure** - Fairly distributes connection closures across overloaded servers
+3. **XA session invalidation** - Clears stale session bindings when server recovers
+4. **Automatic redistribution** - Rebalances connections when servers recover
+5. **Balanced closure** - Fairly distributes connection closures across overloaded servers
 
 ## Architecture
 
@@ -83,9 +93,10 @@ Supports forced invalidation:
    ├─ No → Continue with connection
    └─ Yes → Perform health check
        ├─ Validate each unhealthy server
-       │  ├─ Server responds → Mark healthy, add to recovered list
+       │  ├─ Server responds → Mark healthy, invalidate XA sessions, add to recovered list
        │  └─ Server fails → Update last failure timestamp
        └─ If servers recovered
+           ├─ XA sessions for recovered server already invalidated
            ├─ Calculate target distribution
            ├─ Identify overloaded servers
            ├─ Mark connections for closure (balanced)
@@ -93,9 +104,27 @@ Supports forced invalidation:
 4. Pool detects invalid connections (via isValid() or 08006)
 5. Pool closes invalid connections permanently
 6. Pool creates new connections to replace closed ones
-7. New connections distributed via round-robin (includes recovered servers)
-8. Load rebalanced!
+7. New connections distributed via load-aware/round-robin (includes recovered servers)
+8. New connections create fresh sessions on recovered server
+9. Load rebalanced!
 ```
+
+### XA Session Invalidation Details
+
+When a server recovers from failure:
+
+1. **Detection**: Health check validates server is responding
+2. **Session Invalidation** (XA mode only):
+   - Identify all sessions bound to recovered server in `sessionToServerMap`
+   - Remove session bindings (clears client-side cache)
+   - Log invalidated sessions for debugging
+3. **Result**: 
+   - Old sessions can't be used (no binding exists)
+   - Connection pools detect invalid connections
+   - New connections create fresh sessions
+   - No "Connection not found" errors
+
+**Note**: Only affects XA mode where sessions are tracked. Non-XA mode doesn't maintain session bindings.
 
 ## Configuration
 
@@ -169,8 +198,27 @@ Check logs for:
 ```
 INFO  MultinodeConnectionManager - Checking N unhealthy server(s)
 INFO  MultinodeConnectionManager - Server <address> has recovered
+INFO  MultinodeConnectionManager - Invalidating N XA session(s) bound to recovered server <address>
+INFO  MultinodeConnectionManager - XA session invalidation complete for server <address>
 INFO  ConnectionRedistributor - Starting connection redistribution for N recovered server(s)
 INFO  ConnectionRedistributor - Redistribution complete: marked N connections for closure
+```
+
+### XA Session Invalidation Logs
+
+When a server recovers, you'll see:
+```
+INFO  MultinodeConnectionManager - Server server1:1059 has recovered
+INFO  MultinodeConnectionManager - Invalidating 5 XA session(s) bound to recovered server server1:1059
+DEBUG MultinodeConnectionManager - Invalidated XA session abc-123-def for recovered server server1:1059
+DEBUG MultinodeConnectionManager - Invalidated XA session xyz-456-uvw for recovered server server1:1059
+...
+INFO  MultinodeConnectionManager - XA session invalidation complete for server server1:1059. Connection pools will create new sessions.
+```
+
+If no sessions were bound (server was idle or non-XA mode):
+```
+DEBUG MultinodeConnectionManager - No sessions bound to recovered server server1:1059
 ```
 
 ### Verification Queries
@@ -228,6 +276,30 @@ boolean enabled = healthCheckConfig.isRedistributionEnabled();
 - Increase interval: `ojp.health.check.interval=60000` (60s)
 - Simplify query: Use `SELECT 1` instead of complex query
 - Increase timeout: `ojp.health.check.timeout=10000` (10s)
+
+### "Connection not found" Errors After Server Recovery
+
+**Symptoms:** After server restart, queries fail with "Connection not found for this sessionInfo"
+
+**Root Cause:** 
+- Server loses session state when killed (in-memory storage)
+- Client-side session bindings persist
+- Queries sent with old session UUIDs that don't exist on resurrected server
+
+**Solution (Automatic in XA Mode):**
+The system automatically invalidates XA sessions when a server recovers:
+1. Health check detects server recovery
+2. All sessions bound to that server are invalidated
+3. Connection pools detect invalid connections
+4. New connections created with fresh sessions
+
+**Manual Verification:**
+- Check logs for "Invalidating N XA session(s)" messages
+- Verify XA redistributor is enabled: `manager.setXaConnectionRedistributor()`
+- Ensure connection pool validates connections periodically
+
+**For Non-XA Mode:**
+Session invalidation only affects XA mode. In non-XA mode, applications should implement retry logic for transient connection errors.
 
 ## Best Practices
 

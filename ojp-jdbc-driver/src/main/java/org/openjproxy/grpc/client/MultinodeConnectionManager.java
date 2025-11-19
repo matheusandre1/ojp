@@ -213,6 +213,13 @@ public class MultinodeConnectionManager {
             if (timeSinceFailure >= healthCheckConfig.getHealthCheckThresholdMs()) {
                 if (validateServer(endpoint)) {
                     log.info("Server {} has recovered", endpoint.getAddress());
+                    
+                    // Invalidate XA sessions bound to recovered server
+                    // This prevents "Connection not found" errors when server loses session state
+                    if (xaConnectionRedistributor != null) {
+                        invalidateXASessionsForServer(endpoint);
+                    }
+                    
                     endpoint.markHealthy();
                     recoveredServers.add(endpoint);
                     notifyServerRecovered(endpoint);
@@ -240,6 +247,44 @@ public class MultinodeConnectionManager {
                         e.getMessage(), e);
             }
         }
+    }
+    
+    /**
+     * Invalidates all XA sessions bound to a recovered server.
+     * 
+     * When a server is killed and resurrected, it loses all session state (sessions are stored 
+     * in-memory). However, client-side session bindings persist. This causes "Connection not found" 
+     * errors when queries are sent with old session UUIDs that don't exist on the resurrected server.
+     * 
+     * This method clears client-side session bindings for the recovered server, forcing connection 
+     * pools (like Atomikos) to detect invalid connections and create new ones with fresh sessions.
+     * 
+     * Only affects XA mode - non-XA mode doesn't maintain session bindings in sessionToServerMap.
+     * 
+     * @param endpoint The server endpoint that has recovered
+     */
+    private void invalidateXASessionsForServer(ServerEndpoint endpoint) {
+        List<String> sessionsToInvalidate = sessionToServerMap.entrySet().stream()
+                .filter(entry -> entry.getValue().equals(endpoint))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+        
+        if (sessionsToInvalidate.isEmpty()) {
+            log.debug("No sessions bound to recovered server {}", endpoint.getAddress());
+            return;
+        }
+        
+        log.info("Invalidating {} XA session(s) bound to recovered server {}", 
+                sessionsToInvalidate.size(), endpoint.getAddress());
+        
+        for (String sessionUUID : sessionsToInvalidate) {
+            sessionToServerMap.remove(sessionUUID);
+            log.debug("Invalidated XA session {} for recovered server {}", 
+                    sessionUUID, endpoint.getAddress());
+        }
+        
+        log.info("XA session invalidation complete for server {}. Connection pools will create new sessions.", 
+                endpoint.getAddress());
     }
     
     /**
@@ -749,6 +794,13 @@ public class MultinodeConnectionManager {
                 try {
                     log.debug("Attempting to recover server {}", endpoint.getAddress());
                     createChannelAndStub(endpoint);
+                    
+                    // Invalidate XA sessions bound to recovered server
+                    // This prevents "Connection not found" errors when server loses session state
+                    if (xaConnectionRedistributor != null) {
+                        invalidateXASessionsForServer(endpoint);
+                    }
+                    
                     endpoint.setHealthy(true);
                     endpoint.setLastFailureTime(0);
                     log.info("Successfully recovered server {}", endpoint.getAddress());
