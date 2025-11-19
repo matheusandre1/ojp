@@ -256,35 +256,65 @@ public class MultinodeConnectionManager {
      * in-memory). However, client-side session bindings persist. This causes "Connection not found" 
      * errors when queries are sent with old session UUIDs that don't exist on the resurrected server.
      * 
-     * This method clears client-side session bindings for the recovered server, forcing connection 
-     * pools (like Atomikos) to detect invalid connections and create new ones with fresh sessions.
+     * This method:
+     * 1. Clears client-side session bindings for the recovered server
+     * 2. Marks actual Connection objects as invalid so connection pools will discard them
+     * 3. Forces connection pools to create new connections with fresh sessions
      * 
      * Only affects XA mode - non-XA mode doesn't maintain session bindings in sessionToServerMap.
      * 
      * @param endpoint The server endpoint that has recovered
      */
     private void invalidateXASessionsForServer(ServerEndpoint endpoint) {
+        // Step 1: Invalidate session bindings in sessionToServerMap
         List<String> sessionsToInvalidate = sessionToServerMap.entrySet().stream()
                 .filter(entry -> entry.getValue().equals(endpoint))
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
         
-        if (sessionsToInvalidate.isEmpty()) {
-            log.debug("No sessions bound to recovered server {}", endpoint.getAddress());
-            return;
+        if (!sessionsToInvalidate.isEmpty()) {
+            log.info("Invalidating {} XA session binding(s) for recovered server {}", 
+                    sessionsToInvalidate.size(), endpoint.getAddress());
+            
+            for (String sessionUUID : sessionsToInvalidate) {
+                sessionToServerMap.remove(sessionUUID);
+                log.debug("Invalidated XA session binding {} for recovered server {}", 
+                        sessionUUID, endpoint.getAddress());
+            }
         }
         
-        log.info("Invalidating {} XA session(s) bound to recovered server {}", 
-                sessionsToInvalidate.size(), endpoint.getAddress());
+        // Step 2: Mark actual Connection objects as invalid
+        // This is critical - without this, existing connections in the pool will still try
+        // to use old session UUIDs, causing "Connection not found" errors
+        Map<ServerEndpoint, List<java.sql.Connection>> distribution = connectionTracker.getDistribution();
+        List<java.sql.Connection> connectionsToInvalidate = distribution.get(endpoint);
         
-        for (String sessionUUID : sessionsToInvalidate) {
-            sessionToServerMap.remove(sessionUUID);
-            log.debug("Invalidated XA session {} for recovered server {}", 
-                    sessionUUID, endpoint.getAddress());
+        if (connectionsToInvalidate != null && !connectionsToInvalidate.isEmpty()) {
+            log.info("Marking {} XA connection object(s) as invalid for recovered server {}", 
+                    connectionsToInvalidate.size(), endpoint.getAddress());
+            
+            int markedCount = 0;
+            for (java.sql.Connection conn : connectionsToInvalidate) {
+                if (conn instanceof org.openjproxy.jdbc.Connection) {
+                    ((org.openjproxy.jdbc.Connection) conn).markForceInvalid();
+                    markedCount++;
+                    log.debug("Marked XA connection {} as invalid", System.identityHashCode(conn));
+                }
+            }
+            
+            log.info("Marked {} XA connection(s) as invalid for recovered server {}. " +
+                    "Connection pools will detect and replace them.", 
+                    markedCount, endpoint.getAddress());
+        } else {
+            log.debug("No XA connections tracked for recovered server {}", endpoint.getAddress());
         }
         
-        log.info("XA session invalidation complete for server {}. Connection pools will create new sessions.", 
-                endpoint.getAddress());
+        if (sessionsToInvalidate.isEmpty() && (connectionsToInvalidate == null || connectionsToInvalidate.isEmpty())) {
+            log.debug("No sessions or connections bound to recovered server {}", endpoint.getAddress());
+        } else {
+            log.info("XA session invalidation complete for server {}. Connection pools will create new connections with fresh sessions.", 
+                    endpoint.getAddress());
+        }
     }
     
     /**
