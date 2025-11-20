@@ -415,7 +415,7 @@ public class MultinodeConnectionManager {
             selectedServer.setHealthy(true);
             selectedServer.setLastFailureTime(0);
             
-            // Bind session to this server
+            // Bind session to this server - but only for NEW sessions to avoid re-binding invalidated sessions
             if (sessionInfo.getSessionUUID() != null && !sessionInfo.getSessionUUID().isEmpty()) {
                 String targetServer = sessionInfo.getTargetServer();
                 String connectedServerAddress = selectedServer.getHost() + ":" + selectedServer.getPort();
@@ -424,7 +424,14 @@ public class MultinodeConnectionManager {
                         sessionInfo.getSessionUUID(), connectedServerAddress, 
                         targetServer != null ? targetServer : "NULL");
                 
-                if (targetServer != null && !targetServer.isEmpty()) {
+                // Check if this session is already bound - if so, don't rebind to avoid re-adding invalidated sessions
+                boolean sessionAlreadyBound = sessionToServerMap.containsKey(sessionInfo.getSessionUUID());
+                
+                if (sessionAlreadyBound) {
+                    log.warn("DIAGNOSTIC XA: Session {} is already bound. Skipping bind to prevent re-adding invalidated session. " +
+                            "This typically happens during query execution with a pooled connection.", 
+                            sessionInfo.getSessionUUID());
+                } else if (targetServer != null && !targetServer.isEmpty()) {
                     bindSession(sessionInfo.getSessionUUID(), targetServer);
                     if (!targetServer.equals(connectedServerAddress)) {
                         log.warn("DIAGNOSTIC XA: Session {} bound to targetServer {} which DIFFERS from connected server {}. " +
