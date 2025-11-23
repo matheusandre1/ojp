@@ -204,11 +204,11 @@ Database-specific alternatives:
 - **Keep default:** For most production use cases
 
 **Example effects:**
-- `1000ms`: Server recovery detected within 1-2 seconds, but more frequent checks
-- `5000ms` (default): Balanced - recovery detected within 5-10 seconds
-- `30000ms`: Lower overhead, but recovery takes 30-60 seconds to detect
+- `1000ms`: Health checks run frequently, server recovery detected quickly (1-2s typical)
+- `5000ms` (default): Balanced - recovery typically detected within 5-10s
+- `30000ms`: Lower overhead, but recovery detection takes 30-60s
 
-**Note:** Total time from server recovery to redistribution = interval (detection) + threshold (retry wait) + processing time. With defaults (5s + 5s + overhead), typically 10-12 seconds.
+**Note:** Recovery detection time = up to 2× interval in worst case (if server recovers just after a check). With 5s interval, typically 5-10s.
 
 **Impact on system:**
 - Lower values: Faster recovery, slightly higher CPU/network usage
@@ -226,13 +226,15 @@ Database-specific alternatives:
 - **Lower than interval:** Not recommended - may cause excessive retry attempts
 
 **Example effects:**
-- `5000ms` (default): After a server fails, wait 5s before checking again
-- `60000ms`: After a server fails, wait 60s before checking again (good for planned maintenance)
+- `5000ms` (default): After a server fails, it won't be re-checked for 5s
+- `60000ms`: After a server fails, it won't be re-checked for 60s (good for planned maintenance)
 
 **Relationship with interval:**
-- Should be ≥ interval to avoid re-checking failed servers before the next health check cycle
-- If threshold < interval, server becomes eligible for retry before the next health check runs
-- Best practice: Set threshold = interval for consistent behavior
+- Threshold filters which failed servers to check during each health check cycle
+- If threshold = interval: Failed servers eligible for retry at every check
+- If threshold > interval: Failed servers wait longer before being rechecked
+- If threshold < interval: Failed servers may be checked multiple times per threshold period
+- Best practice: Set threshold ≥ interval to avoid excessive retry attempts
 
 ### ojp.health.check.timeout
 
@@ -477,7 +479,7 @@ Session invalidation only affects XA mode. In non-XA mode, applications should i
 2. **Plan for downtime**
    - Health checks will detect planned restarts
    - Redistribution automatic in XA mode (no manual intervention)
-   - Expect 10-12 seconds delay for rebalancing (interval 5s + threshold 5s + processing)
+   - Expect 5-10 seconds delay for rebalancing (based on default 5s interval, worst case 10s)
    - Non-XA mode: Connection pools will naturally redistribute
 
 3. **Test recovery scenarios**
