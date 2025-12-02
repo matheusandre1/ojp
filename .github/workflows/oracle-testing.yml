@@ -51,16 +51,22 @@ jobs:
           sleep 5
           
           # Grant XA permissions to testuser
+          echo "=== Granting XA permissions to testuser ==="
+          
           docker exec ojp-oracle sqlplus -s system/testpassword@localhost/XEPDB1 <<'EOF'
+          SET ECHO ON
+          SET FEEDBACK ON
+          WHENEVER SQLERROR CONTINUE
+          
           -- XA transaction permissions
           GRANT SELECT ON sys.dba_pending_transactions TO testuser;
           GRANT SELECT ON sys.pending_trans$ TO testuser;
           GRANT SELECT ON sys.dba_2pc_pending TO testuser;
-          GRANT EXECUTE ON sys.dbms_system TO testuser;
+          GRANT EXECUTE ON sys.dbms_xa TO testuser;
           GRANT FORCE ANY TRANSACTION TO testuser;
           
           -- Verify grants
-          SELECT 'XA permissions granted successfully' FROM dual;
+          SELECT 'XA permissions granted successfully' AS status FROM dual;
           EXIT;
           EOF
           
