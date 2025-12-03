@@ -59,7 +59,11 @@ jobs:
           SET SERVEROUTPUT ON
           WHENEVER SQLERROR EXIT SQL.SQLCODE
           
-          -- XA transaction permissions
+          -- Grant XA_RECOVER_ADMIN role (Oracle 12c+) for XA transaction recovery
+          -- This role includes necessary privileges for XA operations
+          GRANT XA_RECOVER_ADMIN TO testuser;
+          
+          -- XA transaction permissions (additional grants for completeness)
           GRANT SELECT ON sys.dba_pending_transactions TO testuser;
           GRANT SELECT ON sys.pending_trans$ TO testuser;
           GRANT SELECT ON sys.dba_2pc_pending TO testuser;
@@ -68,27 +72,13 @@ jobs:
           GRANT EXECUTE ON sys.dbms_system TO testuser;
           GRANT FORCE ANY TRANSACTION TO testuser;
           
-          -- Also grant to C## common user if exists (for CDB/PDB setup)
-          BEGIN
-            EXECUTE IMMEDIATE 'GRANT SELECT ON sys.dba_pending_transactions TO c##testuser';
-            EXECUTE IMMEDIATE 'GRANT SELECT ON sys.pending_trans$ TO c##testuser';
-            EXECUTE IMMEDIATE 'GRANT SELECT ON sys.dba_2pc_pending TO c##testuser';
-            EXECUTE IMMEDIATE 'GRANT SELECT ON sys.dba_2pc_neighbors TO c##testuser';
-            EXECUTE IMMEDIATE 'GRANT EXECUTE ON sys.dbms_xa TO c##testuser';
-            EXECUTE IMMEDIATE 'GRANT EXECUTE ON sys.dbms_system TO c##testuser';
-            EXECUTE IMMEDIATE 'GRANT FORCE ANY TRANSACTION TO c##testuser';
-          EXCEPTION
-            WHEN OTHERS THEN
-              DBMS_OUTPUT.PUT_LINE('Note: c##testuser does not exist, skipping common user grants');
-          END;
-          /
-          
           -- Verify grants
           SELECT 'XA permissions granted successfully' AS status FROM dual;
           
-          -- Show granted privileges
-          SELECT privilege, grantee FROM dba_sys_privs WHERE grantee IN ('TESTUSER', 'C##TESTUSER') ORDER BY grantee, privilege;
-          SELECT owner, table_name, privilege, grantee FROM dba_tab_privs WHERE grantee IN ('TESTUSER', 'C##TESTUSER') ORDER BY grantee, owner, table_name;
+          -- Show granted privileges and roles
+          SELECT granted_role, grantee FROM dba_role_privs WHERE grantee = 'TESTUSER' ORDER BY granted_role;
+          SELECT privilege, grantee FROM dba_sys_privs WHERE grantee = 'TESTUSER' ORDER BY privilege;
+          SELECT owner, table_name, privilege, grantee FROM dba_tab_privs WHERE grantee = 'TESTUSER' ORDER BY owner, table_name;
           
           EXIT;
           EOF
