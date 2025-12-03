@@ -13,6 +13,9 @@ import java.util.stream.Stream;
  */
 public class SQLServerConnectionProvider implements ArgumentsProvider {
     
+    // JDBC URL prefix to be removed when building OJP URL
+    private static final String JDBC_PREFIX = "jdbc:";
+    
     // OJP proxy server configuration - can be overridden via system property
     private static final String OJP_PROXY_HOST = System.getProperty("ojp.proxy.host", "localhost");
     private static final String OJP_PROXY_PORT = System.getProperty("ojp.proxy.port", "1059");
@@ -38,7 +41,12 @@ public class SQLServerConnectionProvider implements ArgumentsProvider {
         // We need to extract the connection string and wrap it with OJP format
         // OJP format: jdbc:ojp[localhost:1059]_sqlserver://...
         String driverClass = "org.openjproxy.jdbc.Driver";
-        String ojpUrl = "jdbc:ojp[" + OJP_PROXY_ADDRESS + "]_" + containerJdbcUrl.substring(5); // Remove "jdbc:" prefix
+        
+        // Remove "jdbc:" prefix and add OJP wrapper
+        String urlWithoutPrefix = containerJdbcUrl.startsWith(JDBC_PREFIX) 
+            ? containerJdbcUrl.substring(JDBC_PREFIX.length()) 
+            : containerJdbcUrl;
+        String ojpUrl = JDBC_PREFIX + "ojp[" + OJP_PROXY_ADDRESS + "]_" + urlWithoutPrefix;
         
         // Return a single set of arguments with the TestContainer connection details
         return Stream.of(

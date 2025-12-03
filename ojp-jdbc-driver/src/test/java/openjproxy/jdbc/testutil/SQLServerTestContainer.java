@@ -14,6 +14,7 @@ public class SQLServerTestContainer {
     
     private static MSSQLServerContainer<?> container;
     private static boolean isStarted = false;
+    private static boolean shutdownHookRegistered = false;
     
     /**
      * Gets or creates the shared SQL Server test container instance.
@@ -32,11 +33,14 @@ public class SQLServerTestContainer {
             isStarted = true;
             
             // Add shutdown hook to stop container when JVM exits
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                if (container != null && container.isRunning()) {
-                    container.stop();
-                }
-            }));
+            if (!shutdownHookRegistered) {
+                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                    if (container != null && container.isRunning()) {
+                        container.stop();
+                    }
+                }));
+                shutdownHookRegistered = true;
+            }
         }
         
         return container;
