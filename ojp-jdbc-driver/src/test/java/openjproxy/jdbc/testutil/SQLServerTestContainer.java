@@ -9,6 +9,9 @@ import org.testcontainers.containers.MSSQLServerContainer;
  */
 public class SQLServerTestContainer {
     
+    // SQL Server Docker image version
+    private static final String MSSQL_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
+    
     private static MSSQLServerContainer<?> container;
     private static boolean isStarted = false;
     
@@ -20,7 +23,7 @@ public class SQLServerTestContainer {
      */
     public static synchronized MSSQLServerContainer<?> getInstance() {
         if (container == null) {
-            container = new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2022-latest")
+            container = new MSSQLServerContainer<>(MSSQL_IMAGE)
                     .acceptLicense();
         }
         

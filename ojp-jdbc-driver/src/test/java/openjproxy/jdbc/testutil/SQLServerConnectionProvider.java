@@ -13,6 +13,11 @@ import java.util.stream.Stream;
  */
 public class SQLServerConnectionProvider implements ArgumentsProvider {
     
+    // OJP proxy server configuration - can be overridden via system property
+    private static final String OJP_PROXY_HOST = System.getProperty("ojp.proxy.host", "localhost");
+    private static final String OJP_PROXY_PORT = System.getProperty("ojp.proxy.port", "1059");
+    private static final String OJP_PROXY_ADDRESS = OJP_PROXY_HOST + ":" + OJP_PROXY_PORT;
+    
     @Override
     public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
         if (!SQLServerTestContainer.isEnabled()) {
@@ -33,7 +38,7 @@ public class SQLServerConnectionProvider implements ArgumentsProvider {
         // We need to extract the connection string and wrap it with OJP format
         // OJP format: jdbc:ojp[localhost:1059]_sqlserver://...
         String driverClass = "org.openjproxy.jdbc.Driver";
-        String ojpUrl = "jdbc:ojp[localhost:1059]_" + containerJdbcUrl.substring(5); // Remove "jdbc:" prefix
+        String ojpUrl = "jdbc:ojp[" + OJP_PROXY_ADDRESS + "]_" + containerJdbcUrl.substring(5); // Remove "jdbc:" prefix
         
         // Return a single set of arguments with the TestContainer connection details
         return Stream.of(
