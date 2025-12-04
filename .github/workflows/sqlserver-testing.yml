@@ -48,38 +48,6 @@ jobs:
           echo "=== Modified ojp-server/pom.xml dependencies section ==="
           sed -n '/PROPRIETARY DATABASE DRIVERS PLACEHOLDER/,/HikariCP/p' ojp-server/pom.xml
 
-      - name: Add SQL Server JDBC Driver and TestContainers to ojp-jdbc-driver
-        run: |
-          # Create temporary file with SQL Server test dependencies
-          cat > /tmp/sqlserver-test-deps.txt << 'EOF'
-
-          <!-- SQL Server JDBC Driver - Required by TestContainers SQL Server (added by CI) -->
-          <!-- https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc -->
-          <dependency>
-              <groupId>com.microsoft.sqlserver</groupId>
-              <artifactId>mssql-jdbc</artifactId>
-              <version>12.8.1.jre11</version>
-              <scope>test</scope>
-          </dependency>
-
-          <!-- TestContainers SQL Server - Added for SQL Server integration tests (added by CI) -->
-          <!-- https://mvnrepository.com/artifact/org.testcontainers/mssqlserver -->
-          <dependency>
-              <groupId>org.testcontainers</groupId>
-              <artifactId>mssqlserver</artifactId>
-              <version>1.20.4</version>
-              <scope>test</scope>
-          </dependency>
-          EOF
-          
-          # Insert after the postgresql dependency (last dependency before </dependencies>)
-          sed -i '/<artifactId>postgresql<\/artifactId>/,/<\/dependency>/ { /<\/dependency>/r /tmp/sqlserver-test-deps.txt
-          }' ojp-jdbc-driver/pom.xml
-          
-          # Verify the insertion
-          echo "=== Modified ojp-jdbc-driver/pom.xml dependencies section ==="
-          sed -n '/postgresql/,/<\/dependencies>/p' ojp-jdbc-driver/pom.xml | tail -25
-
       - name: Set up JDK 22 for build
         uses: actions/setup-java@v4
         with:
