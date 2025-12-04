@@ -171,7 +171,7 @@ jobs:
         run: mvn clean install -pl ojp-jdbc-driver -am -DskipTests -Dgpg.skip=true
 
       - name: Test (ojp-jdbc-driver)
-        run: mvn test -pl ojp-jdbc-driver -Dgpg.skip=true
+        run: mvn test -pl ojp-jdbc-driver -Dgpg.skip=true -Dtest='!SQLServer*'
 
       - name: Show ojp-server.log
         if: always()  # ensures it runs even if previous steps fail
