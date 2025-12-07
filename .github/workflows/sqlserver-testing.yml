@@ -88,8 +88,8 @@ jobs:
             -DenableSqlServerTests=true \
             -DenablePostgresTests=false \
             -DenableMySQLTests=false \
-            -DdisableMariaDBTests=true \
-            -DdisableCockroachDBTests=true \
+            -DenableMariaDBTests=false \
+            -DenableCockroachDBTests=false \
             -Dtest="SQLServer*"
 
       - name: Show ojp-server.log

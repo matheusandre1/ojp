@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 public class BlobIntegrationTest {
 
     private static boolean isMySQLTestEnabled;
-    private static boolean isMariaDBTestDisabled;
+    private static boolean isMariaDBTestEnabled;
     private static boolean isOracleTestEnabled;
     private String tableName;
     private Connection conn;
@@ -30,7 +30,7 @@ public class BlobIntegrationTest {
     @BeforeAll
     public static void checkTestConfiguration() {
         isMySQLTestEnabled = Boolean.parseBoolean(System.getProperty("enableMySQLTests", "false"));
-        isMariaDBTestDisabled = Boolean.parseBoolean(System.getProperty("disableMariaDBTests", "false"));
+        isMariaDBTestEnabled = Boolean.parseBoolean(System.getProperty("enableMariaDBTests", "false"));
         isOracleTestEnabled = Boolean.parseBoolean(System.getProperty("enableOracleTests", "false"));
     }
 
@@ -38,10 +38,10 @@ public class BlobIntegrationTest {
 
         this.tableName = "blob_test_blob";
         if (url.toLowerCase().contains("mysql")) {
-            assumeFalse(isMySQLTestDisabled, "MySQL tests are disabled");
+            assumeFalse(!isMySQLTestEnabled, "MySQL tests are disabled");
             this.tableName += "_mysql";
         } else if (url.toLowerCase().contains("mariadb")) {
-            assumeFalse(isMariaDBTestDisabled, "MariaDB tests are disabled");
+            assumeFalse(!isMariaDBTestEnabled, "MariaDB tests are disabled");
             this.tableName += "_mariadb";
         } else if (url.toLowerCase().contains("oracle")) {
             assumeFalse(!isOracleTestEnabled, "Oracle tests are disabled");

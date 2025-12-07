@@ -35,8 +35,8 @@ public class ResultSetTest {
 
     @SneakyThrows
     public void setUp(String driverClass, String url, String user, String pwd) throws SQLException {
-        // Skip PostgreSQL tests if disabled
-        if (url.contains("postgresql") && isPostgresTestDisabled) {
+        // Skip PostgreSQL tests if not enabled
+        if (url.contains("postgresql") && !isPostgresTestEnabled) {
             Assumptions.assumeFalse(true, "Skipping Postgres tests");
         }
 

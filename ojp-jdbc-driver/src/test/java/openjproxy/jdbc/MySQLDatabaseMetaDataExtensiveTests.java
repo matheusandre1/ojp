@@ -17,18 +17,18 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 public class MySQLDatabaseMetaDataExtensiveTests {
 
     private static boolean isMySQLTestEnabled;
-    private static boolean isMariaDBTestDisabled;
+    private static boolean isMariaDBTestEnabled;
     private static Connection connection;
 
     @BeforeAll
     public static void checkTestConfiguration() {
         isMySQLTestEnabled = Boolean.parseBoolean(System.getProperty("enableMySQLTests", "false"));
-        isMariaDBTestDisabled = Boolean.parseBoolean(System.getProperty("disableMariaDBTests", "false"));
+        isMariaDBTestEnabled = Boolean.parseBoolean(System.getProperty("enableMariaDBTests", "false"));
     }
 
     public void setUp(String driverClass, String url, String user, String password) throws Exception {
         assumeFalse(!isMySQLTestEnabled, "MySQL tests are disabled");
-        assumeFalse(isMariaDBTestDisabled, "MariaDB tests are disabled");
+        assumeFalse(!isMariaDBTestEnabled, "MariaDB tests are disabled");
         connection = DriverManager.getConnection(url, user, password);
         TestDBUtils.createBasicTestTable(connection, "mysql_db_metadata_test", TestDBUtils.SqlSyntax.MYSQL, true);
     }

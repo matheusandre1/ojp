@@ -20,8 +20,8 @@ public class BasicCrudIntegrationTest {
 
     private static boolean isPostgresTestEnabled;
     private static boolean isMySQLTestEnabled;
-    private static boolean isMariaDBTestDisabled;
-    private static boolean isCockroachDBTestDisabled;
+    private static boolean isMariaDBTestEnabled;
+    private static boolean isCockroachDBTestEnabled;
     private static boolean isOracleTestEnabled;
     private static boolean isSqlServerTestEnabled;
     private static boolean isDb2TestEnabled;
@@ -31,8 +31,8 @@ public class BasicCrudIntegrationTest {
     public static void setup() {
         isPostgresTestEnabled = Boolean.parseBoolean(System.getProperty("enablePostgresTests", "false"));
         isMySQLTestEnabled = Boolean.parseBoolean(System.getProperty("enableMySQLTests", "false"));
-        isMariaDBTestDisabled = Boolean.parseBoolean(System.getProperty("disableMariaDBTests", "false"));
-        isCockroachDBTestDisabled = Boolean.parseBoolean(System.getProperty("disableCockroachDBTests", "false"));
+        isMariaDBTestEnabled = Boolean.parseBoolean(System.getProperty("enableMariaDBTests", "false"));
+        isCockroachDBTestEnabled = Boolean.parseBoolean(System.getProperty("enableCockroachDBTests", "false"));
         isOracleTestEnabled = Boolean.parseBoolean(System.getProperty("enableOracleTests", "false"));
         isSqlServerTestEnabled = Boolean.parseBoolean(System.getProperty("enableSqlServerTests", "false"));
         isDb2TestEnabled = Boolean.parseBoolean(System.getProperty("enableDb2Tests", "false"));
@@ -54,7 +54,7 @@ public class BasicCrudIntegrationTest {
         }
 
         // Skip MariaDB tests if disabled
-        if (url.toLowerCase().contains("mariadb") && isMariaDBTestDisabled) {
+        if (url.toLowerCase().contains("mariadb") && !isMariaDBTestEnabled) {
             Assumptions.assumeFalse(true, "Skipping MariaDB tests");
             tablePrefix = "mariadb_";
         }
@@ -78,7 +78,7 @@ public class BasicCrudIntegrationTest {
         }
 
         // Skip CockroachDB tests if disabled  
-        if (url.toLowerCase().contains("26257") && isCockroachDBTestDisabled) {
+        if (url.toLowerCase().contains("26257") && !isCockroachDBTestEnabled) {
             Assumptions.assumeFalse(true, "Skipping CockroachDB tests");
             tablePrefix = "cockroachdb_";
         }

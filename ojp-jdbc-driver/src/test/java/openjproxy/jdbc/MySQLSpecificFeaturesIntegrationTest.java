@@ -20,19 +20,19 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 public class MySQLSpecificFeaturesIntegrationTest {
 
     private static boolean isMySQLTestEnabled;
-    private static boolean isMariaDBTestDisabled;
+    private static boolean isMariaDBTestEnabled;
 
     @BeforeAll
     public static void checkTestConfiguration() {
         isMySQLTestEnabled = Boolean.parseBoolean(System.getProperty("enableMySQLTests", "false"));
-        isMariaDBTestDisabled = Boolean.parseBoolean(System.getProperty("disableMariaDBTests", "false"));
+        isMariaDBTestEnabled = Boolean.parseBoolean(System.getProperty("enableMariaDBTests", "false"));
     }
 
     @ParameterizedTest
     @CsvFileSource(resources = "/mysql_mariadb_connection.csv")
     public void onDuplicateKeyUpdateTestSuccessful(String driverClass, String url, String user, String pwd) throws SQLException, ClassNotFoundException {
         assumeFalse(!isMySQLTestEnabled, "MySQL tests are disabled");
-        assumeFalse(isMariaDBTestDisabled, "MariaDB tests are disabled");
+        assumeFalse(!isMariaDBTestEnabled, "MariaDB tests are disabled");
 
         Connection conn = DriverManager.getConnection(url, user, pwd);
 
