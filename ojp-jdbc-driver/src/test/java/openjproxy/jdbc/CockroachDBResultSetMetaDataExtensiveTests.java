@@ -24,7 +24,7 @@ public class CockroachDBResultSetMetaDataExtensiveTests {
 
     @SneakyThrows
     public void setUp(String driverClass, String url, String user, String password) throws SQLException {
-        assumeFalse(!isTestEnabled, "CockroachDB tests are disabled");
+        assumeFalse(!isTestEnabled, "CockroachDB tests are not enabled");
         
         connection = DriverManager.getConnection(url, user, password);
         Statement statement = connection.createStatement();
@@ -175,7 +175,7 @@ public class CockroachDBResultSetMetaDataExtensiveTests {
     @ParameterizedTest
     @CsvFileSource(resources = "/cockroachdb_connection.csv")
     public void testResultSetMetaDataWithNullValues(String driverClass, String url, String user, String password) throws SQLException {
-        assumeFalse(!isTestEnabled, "CockroachDB tests are disabled");
+        assumeFalse(!isTestEnabled, "CockroachDB tests are not enabled");
         
         connection = DriverManager.getConnection(url, user, password);
         Statement statement = connection.createStatement();
@@ -206,7 +206,7 @@ public class CockroachDBResultSetMetaDataExtensiveTests {
     @ParameterizedTest
     @CsvFileSource(resources = "/cockroachdb_connection.csv")
     public void testResultSetMetaDataWithComplexTypes(String driverClass, String url, String user, String password) throws SQLException {
-        assumeFalse(!isTestEnabled, "CockroachDB tests are disabled");
+        assumeFalse(!isTestEnabled, "CockroachDB tests are not enabled");
         
         connection = DriverManager.getConnection(url, user, password);
         Statement statement = connection.createStatement();

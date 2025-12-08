@@ -28,7 +28,7 @@ public class CockroachDBSavepointTests {
 
     @SneakyThrows
     public void setUp(String driverClass, String url, String user, String pwd) throws SQLException {
-        assumeFalse(!isTestEnabled, "CockroachDB tests are disabled");
+        assumeFalse(!isTestEnabled, "CockroachDB tests are not enabled");
         
         connection = DriverManager.getConnection(url, user, pwd);
         connection.setAutoCommit(true);

@@ -39,8 +39,8 @@ public class MySQLPreparedStatementExtensiveTests {
     }
 
     public void setUp(String driverClass, String url, String user, String password) throws Exception {
-        assumeFalse(!isMySQLTestEnabled, "MySQL tests are disabled");
-        assumeFalse(!isMariaDBTestEnabled, "MariaDB tests are disabled");
+        assumeFalse(!isMySQLTestEnabled, "MySQL tests are not enabled");
+        assumeFalse(!isMariaDBTestEnabled, "MariaDB tests are not enabled");
 
         connection = DriverManager.getConnection(url, user, password);
         Statement stmt = connection.createStatement();

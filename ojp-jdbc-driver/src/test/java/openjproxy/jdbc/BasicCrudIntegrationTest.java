@@ -58,7 +58,7 @@ public class BasicCrudIntegrationTest {
             Assumptions.assumeFalse(true, "Skipping MySQL tests");
         }
 
-        // Skip MariaDB tests if disabled
+        // Skip MariaDB tests if not enabled
         if (url.toLowerCase().contains("mariadb") && !isMariaDBTestEnabled) {
             Assumptions.assumeFalse(true, "Skipping MariaDB tests");
         }
@@ -78,7 +78,7 @@ public class BasicCrudIntegrationTest {
             Assumptions.assumeFalse(true, "Skipping DB2 tests - not enabled");
         }
 
-        // Skip CockroachDB tests if disabled  
+        // Skip CockroachDB tests if not enabled  
         if (url.toLowerCase().contains("26257") && !isCockroachDBTestEnabled) {
             Assumptions.assumeFalse(true, "Skipping CockroachDB tests");
         }

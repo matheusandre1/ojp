@@ -40,10 +40,10 @@ public class BlobIntegrationTest {
 
         this.tableName = "blob_test_blob";
         if (url.toLowerCase().contains("mysql")) {
-            assumeFalse(!isMySQLTestEnabled, "MySQL tests are disabled");
+            assumeFalse(!isMySQLTestEnabled, "MySQL tests are not enabled");
             this.tableName += "_mysql";
         } else if (url.toLowerCase().contains("mariadb")) {
-            assumeFalse(!isMariaDBTestEnabled, "MariaDB tests are disabled");
+            assumeFalse(!isMariaDBTestEnabled, "MariaDB tests are not enabled");
             this.tableName += "_mariadb";
         } else if (url.toLowerCase().contains("oracle")) {
             assumeFalse(!isOracleTestEnabled, "Oracle tests are disabled");
