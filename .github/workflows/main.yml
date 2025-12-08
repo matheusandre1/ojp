@@ -492,15 +492,44 @@ jobs:
             -e DB2INSTANCE=db2inst1 \
             -e DB2INST1_PASSWORD=testpassword \
             -e DBNAME=defaultdb \
+            -e AUTOCONFIG=false \
+            -e ARCHIVE_LOGS=false \
             -p 50000:50000 \
             -d ibmcom/db2:11.5.8.0
           
-          # Wait for DB2 to be ready (this can take several minutes)
-          echo "Waiting for DB2 to start (this may take 5-10 minutes)..."
-          sleep 300
+          # Wait for DB2 to be ready with proper health check (can take 5-10 minutes)
+          echo "Waiting for DB2 to start (this may take several minutes)..."
           
-          # Verify DB2 is running
-          docker logs ojp-db2 | tail -20
+          # Check Docker logs for the "Setup has completed" message indicating DB2 is ready
+          MAX_WAIT=600  # 10 minutes
+          ELAPSED=0
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            if docker logs ojp-db2 2>&1 | grep -q "Setup has completed"; then
+              echo "DB2 is ready after $ELAPSED seconds"
+              break
+            fi
+            echo "Still waiting for DB2... ($ELAPSED seconds elapsed)"
+            sleep 30
+            ELAPSED=$((ELAPSED + 30))
+          done
+          
+          if [ $ELAPSED -ge $MAX_WAIT ]; then
+            echo "ERROR: DB2 did not start within $MAX_WAIT seconds"
+            echo "Last 50 lines of DB2 logs:"
+            docker logs ojp-db2 2>&1 | tail -50
+            exit 1
+          fi
+          
+          # Give it a few more seconds to stabilize
+          echo "DB2 setup complete, waiting 30 more seconds for stabilization..."
+          sleep 30
+          
+          # Verify DB2 is accessible
+          echo "Testing DB2 connectivity..."
+          docker exec ojp-db2 su - db2inst1 -c "db2 connect to defaultdb user db2inst1 using testpassword" || true
+          
+          echo "Final DB2 log check:"
+          docker logs ojp-db2 2>&1 | tail -20
 
       - name: Add DB2 JDBC Driver to ojp-server
         run: |
