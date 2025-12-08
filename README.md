@@ -4,62 +4,8 @@
 ![Release](https://img.shields.io/github/v/release/Open-J-Proxy/ojp?include_prereleases)
 
 [![Main CI](https://github.com/Open-J-Proxy/ojp/actions/workflows/main.yml/badge.svg)](https://github.com/Open-J-Proxy/ojp/actions/workflows/main.yml)
+[![Multinode Integration Tests](https://github.com/Open-J-Proxy/ojp/actions/workflows/multinode-integration.yml/badge.svg)](https://github.com/Open-J-Proxy/ojp/actions/workflows/multinode-integration.yml)
 [![Spring Boot/Micronaut/Quarkus Integration](https://github.com/Open-J-Proxy/ojp-framework-integration/actions/workflows/main.yml/badge.svg)](https://github.com/Open-J-Proxy/ojp-framework-integration/actions/workflows/main.yml)
-
-## CI/CD Workflows
-
-OJP uses a comprehensive CI/CD pipeline with sequential execution to ensure code quality across all supported databases. The workflow follows a **fail-fast strategy** where H2 tests run first, and expensive database-specific tests only execute if H2 tests pass.
-
-### Workflow Structure
-
-All workflows are consolidated into a single [`main.yml`](.github/workflows/main.yml) file with job dependencies:
-
-1. **Build & Test (H2)** - Fast fail-fast gate using embedded H2 database
-   - Runs on: Java 11, 17, 21, 22
-   - Purpose: Quick validation before expensive database tests
-
-2. **PostgreSQL Tests** - PostgreSQL database integration tests
-   - Runs on: Java 11, 17, 21, 22
-   - Depends on: Build & Test (H2)
-
-3. **MySQL Tests** - MySQL database integration tests
-   - Runs on: Java 11, 17, 21, 22
-   - Depends on: Build & Test (H2)
-
-4. **MariaDB Tests** - MariaDB database integration tests
-   - Runs on: Java 11, 17, 21, 22
-   - Depends on: Build & Test (H2)
-
-5. **CockroachDB Tests** - CockroachDB distributed SQL database tests
-   - Runs on: Java 11, 17, 21, 22
-   - Depends on: Build & Test (H2)
-
-6. **DB2 Tests** - IBM DB2 database integration tests
-   - Runs on: Java 11, 17, 21, 22
-   - Depends on: Build & Test (H2)
-
-7. **Multinode Integration Tests** - Multi-server failover and load balancing tests
-   - Tests high availability scenarios with PostgreSQL
-   - Depends on: Build & Test (H2)
-
-8. **Oracle Tests** - Oracle database integration tests
-   - Runs on: Java 11, 17, 21, 22
-   - Depends on: Build & Test (H2)
-
-9. **SQL Server Tests** - Microsoft SQL Server integration tests
-   - Runs on: Java 11, 17, 21, 22
-   - Depends on: Build & Test (H2)
-
-10. **Integration Repository Notification** - Triggers framework integration tests
-    - Notifies [`ojp-framework-integration`](https://github.com/Open-J-Proxy/ojp-framework-integration) repo
-    - Depends on: Build & Test (H2)
-
-### Benefits
-
-- **Fast Feedback**: H2 tests complete in 30-60 seconds
-- **Cost Savings**: Expensive database tests only run if H2 tests pass
-- **Comprehensive Coverage**: Tests across 8 databases and 4 Java versions
-- **Sequential Execution**: Consistent behavior on all branches (PRs, main, feature branches)
 
 [![License](https://img.shields.io/github/license/Open-J-Proxy/ojp.svg)](https://raw.githubusercontent.com/Open-J-Proxy/ojp/master/LICENSE)
 
