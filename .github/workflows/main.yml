@@ -325,7 +325,7 @@ jobs:
           --health-timeout=5s
           --health-retries=5
         ports:
-          - 3306:3306
+          - 3307:3306
 
     steps:
       - name: Git checkout
