@@ -39,7 +39,7 @@ public class CockroachDBPreparedStatementExtensiveTests {
     }
 
     public void setUp(String driverClass, String url, String user, String password) throws Exception {
-        assumeFalse(!isTestEnabled, "CockroachDB tests are disabled");
+        assumeFalse(!isTestEnabled, "CockroachDB tests are not enabled");
         
         connection = DriverManager.getConnection(url, user, password);
         Statement stmt = connection.createStatement();

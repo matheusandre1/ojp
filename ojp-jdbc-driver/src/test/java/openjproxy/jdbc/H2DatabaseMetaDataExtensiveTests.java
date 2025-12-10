@@ -10,9 +10,16 @@ import java.sql.*;
 
 public class H2DatabaseMetaDataExtensiveTests {
 
+    private static boolean isH2TestEnabled;
     private static Connection connection;
 
+    @BeforeAll
+    public static void setupClass() {
+        isH2TestEnabled = Boolean.parseBoolean(System.getProperty("enableH2Tests", "false"));
+    }
+
     public void setUp(String driverClass, String url, String user, String password) throws Exception {
+        Assumptions.assumeTrue(isH2TestEnabled, "Skipping H2 tests - not enabled");
         connection = DriverManager.getConnection(url, user, password);
         TestDBUtils.createBasicTestTable(connection, "h2_db_metadata_test", TestDBUtils.SqlSyntax.H2, true);
     }

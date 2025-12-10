@@ -33,8 +33,15 @@ public class MySQLMultipleTypesIntegrationTest {
     @ParameterizedTest
     @CsvFileSource(resources = "/mysql_mariadb_connection.csv")
     public void typesCoverageTestSuccessful(String driverClass, String url, String user, String pwd) throws SQLException, ClassNotFoundException, ParseException {
-        assumeFalse(!isMySQLTestEnabled, "MySQL tests are disabled");
-        assumeFalse(!isMariaDBTestEnabled, "MariaDB tests are disabled");
+        // Skip MySQL tests if not enabled
+        if (url.toLowerCase().contains("mysql") && !isMySQLTestEnabled) {
+            assumeFalse(true, "Skipping MySQL tests");
+        }
+        
+        // Skip MariaDB tests if not enabled
+        if (url.toLowerCase().contains("mariadb") && !isMariaDBTestEnabled) {
+            assumeFalse(true, "Skipping MariaDB tests");
+        }
 
         Connection conn = DriverManager.getConnection(url, user, pwd);
 
@@ -121,7 +128,15 @@ public class MySQLMultipleTypesIntegrationTest {
     @ParameterizedTest
     @CsvFileSource(resources = "/mysql_mariadb_connection.csv")
     public void mysqlSpecificTypesTestSuccessful(String driverClass, String url, String user, String pwd) throws SQLException, ClassNotFoundException {
-        assumeFalse(!isMySQLTestEnabled, "MySQL tests are disabled");
+        // Skip MySQL tests if not enabled
+        if (url.toLowerCase().contains("mysql") && !isMySQLTestEnabled) {
+            assumeFalse(true, "Skipping MySQL tests");
+        }
+        
+        // Skip MariaDB tests if not enabled  
+        if (url.toLowerCase().contains("mariadb") && !isMariaDBTestEnabled) {
+            assumeFalse(true, "Skipping MariaDB tests");
+        }
         
         Connection conn = DriverManager.getConnection(url, user, pwd);
 

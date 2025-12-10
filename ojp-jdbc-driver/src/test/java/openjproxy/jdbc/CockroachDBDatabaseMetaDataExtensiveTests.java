@@ -20,7 +20,7 @@ public class CockroachDBDatabaseMetaDataExtensiveTests {
     }
 
     public void setUp(String driverClass, String url, String user, String password) throws Exception {
-        assumeFalse(!isTestEnabled, "CockroachDB tests are disabled");
+        assumeFalse(!isTestEnabled, "CockroachDB tests are not enabled");
         
         connection = DriverManager.getConnection(url, user, password);
         TestDBUtils.createBasicTestTable(connection, "cockroachdb_db_metadata_test", TestDBUtils.SqlSyntax.COCKROACHDB, true);
