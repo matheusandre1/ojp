@@ -1,6 +1,7 @@
 package openjproxy.jdbc;
 
 import lombok.extern.slf4j.Slf4j;
+import openjproxy.jdbc.testutil.SQLServerConnectionProvider;
 import openjproxy.jdbc.testutil.TestDBUtils;
 import openjproxy.jdbc.testutil.TestDBUtils.ConnectionResult;
 import org.junit.Assert;
@@ -46,7 +47,7 @@ public class BasicCrudIntegrationTest {
             Assumptions.assumeFalse(true, "Skipping Postgres tests");
             tablePrefix = "postgres_";
         }
-        
+
         // Skip MySQL tests if not enabled
         if (url.toLowerCase().contains("mysql") && !isMySQLTestEnabled) {
             Assumptions.assumeFalse(true, "Skipping MySQL tests");
@@ -65,10 +66,15 @@ public class BasicCrudIntegrationTest {
             tablePrefix = "oracle_";
         }
 
-        // Skip SQL Server tests if not enabled
-        if (url.toLowerCase().contains("sqlserver") && !isSqlServerTestEnabled) {
-            Assumptions.assumeFalse(true, "Skipping SQL Server tests - not enabled");
-            tablePrefix = "sqlserver_";
+        // SQL Server: when enabled, rewrite CSV URL to point to TestContainer through OJP proxy
+        if (url.toLowerCase().contains("sqlserver") ) {
+            if(!isSqlServerTestEnabled){
+                Assumptions.assumeFalse(true, "Skipping SQL Server tests - not enabled");
+                tablePrefix = "sqlserver_";
+            } else {
+                url = SQLServerConnectionProvider.getOjpProxyAddress();
+                tablePrefix = "sqlserver_" +  (isXA ? "xa_" : "nonxa_");
+            }
         }
 
         // Skip DB2 tests if not enabled
@@ -77,7 +83,7 @@ public class BasicCrudIntegrationTest {
             tablePrefix = "db2_";
         }
 
-        // Skip CockroachDB tests if disabled  
+        // Skip CockroachDB tests if disabled
         if (url.toLowerCase().contains("26257") && !isCockroachDBTestEnabled) {
             Assumptions.assumeFalse(true, "Skipping CockroachDB tests");
             tablePrefix = "cockroachdb_";

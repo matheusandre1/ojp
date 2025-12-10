@@ -4,8 +4,10 @@ import lombok.extern.slf4j.Slf4j;
 import openjproxy.jdbc.testutil.TestDBUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.condition.EnabledIf;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvFileSource;
+import org.junit.jupiter.params.provider.ArgumentsSource;
+import openjproxy.jdbc.testutil.SQLServerConnectionProvider;
 import org.openjproxy.jdbc.xa.OjpXADataSource;
 
 import javax.sql.XAConnection;
@@ -28,6 +30,7 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
  * 3. The client-side code updated to use integrated StatementService
  */
 @Slf4j
+@EnabledIf("openjproxy.jdbc.testutil.SQLServerTestContainer#isEnabled")
 public class SqlServerXAIntegrationTest {
 
     private static boolean isTestDisabled;
@@ -36,12 +39,12 @@ public class SqlServerXAIntegrationTest {
 
     @BeforeAll
     public static void checkTestConfiguration() {
-
-        isTestDisabled = Boolean.parseBoolean(System.getProperty("disableSqlServerTests", "true"));
+        // Align with other SQL Server tests: enabled when -DenableSqlServerTests=true
+        isTestDisabled = !Boolean.parseBoolean(System.getProperty("enableSqlServerTests", "false"));
     }
 
     public void setUp(String url, String user, String password) throws SQLException {
-        assumeFalse(isTestDisabled, "SQL Server XA tests are disabled. Enable with -DdisableSqlServerTests=false");
+        assumeFalse(isTestDisabled, "SQL Server XA tests are disabled");
 
         // Create XA DataSource
         OjpXADataSource xaDataSource = new OjpXADataSource();
@@ -70,8 +73,8 @@ public class SqlServerXAIntegrationTest {
      * Test basic XA connection creation and closure.
      */
     @ParameterizedTest
-    @CsvFileSource(resources = "/sqlserver_xa_connection.csv")
-    public void testXAConnectionBasics(String url, String user, String password) throws Exception {
+    @ArgumentsSource(SQLServerConnectionProvider.class)
+    public void testXAConnectionBasics(String driverClass, String url, String user, String password) throws Exception {
         setUp(url, user, password);
 
         assertNotNull(xaConnection, "XA connection should be created");
@@ -91,8 +94,8 @@ public class SqlServerXAIntegrationTest {
      * This tests: xaStart -> executeUpdate -> xaEnd -> xaPrepare -> xaCommit
      */
     @ParameterizedTest
-    @CsvFileSource(resources = "/sqlserver_xa_connection.csv")
-    public void testXATransactionWithCRUD(String url, String user, String password) throws Exception {
+    @ArgumentsSource(SQLServerConnectionProvider.class)
+    public void testXATransactionWithCRUD(String driverClass, String url, String user, String password) throws Exception {
         setUp(url, user, password);
 
         XAResource xaResource = xaConnection.getXAResource();
@@ -170,8 +173,8 @@ public class SqlServerXAIntegrationTest {
      * Test XA transaction rollback.
      */
     @ParameterizedTest
-    @CsvFileSource(resources = "/sqlserver_xa_connection.csv")
-    public void testXATransactionRollback(String url, String user, String password) throws Exception {
+    @ArgumentsSource(SQLServerConnectionProvider.class)
+    public void testXATransactionRollback(String driverClass, String url, String user, String password) throws Exception {
         setUp(url, user, password);
 
         XAResource xaResource = xaConnection.getXAResource();
@@ -232,8 +235,8 @@ public class SqlServerXAIntegrationTest {
      * Test transaction timeout functionality.
      */
     @ParameterizedTest
-    @CsvFileSource(resources = "/sqlserver_xa_connection.csv")
-    public void testXATransactionTimeout(String url, String user, String password) throws Exception {
+    @ArgumentsSource(SQLServerConnectionProvider.class)
+    public void testXATransactionTimeout(String driverClass, String url, String user, String password) throws Exception {
         setUp(url, user, password);
 
         XAResource xaResource = xaConnection.getXAResource();
@@ -255,8 +258,8 @@ public class SqlServerXAIntegrationTest {
      * Test one-phase commit optimization.
      */
     @ParameterizedTest
-    @CsvFileSource(resources = "/sqlserver_xa_connection.csv")
-    public void testXAOnePhaseCommit(String url, String user, String password) throws Exception {
+    @ArgumentsSource(SQLServerConnectionProvider.class)
+    public void testXAOnePhaseCommit(String driverClass, String url, String user, String password) throws Exception {
         setUp(url, user, password);
 
         XAResource xaResource = xaConnection.getXAResource();
