@@ -11,6 +11,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -165,13 +166,13 @@ public class TestDBUtils {
      * Simple Xid implementation for XA transactions in tests.
      */
     private static class SimpleXid implements Xid {
-        private static int counter = 0;
+        // AtomicInteger replaces synchronized(SimpleXid.class) for thread-safe ID generation
+        // and avoids virtual-thread pinning
+        private static AtomicInteger counter = new AtomicInteger(0);;
         private final int id;
 
         public SimpleXid() {
-            synchronized (SimpleXid.class) {
-                this.id = counter++;
-            }
+            this.id = counter.getAndIncrement();
         }
 
         @Override

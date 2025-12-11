@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import static org.openjproxy.grpc.client.GrpcExceptionHandler.handle;
 
 @Slf4j
@@ -723,7 +722,7 @@ public class ResultSet extends RemoteProxyResultSet {
     }
 
     @Override
-    public synchronized boolean isFirst() throws SQLException {
+    public boolean isFirst() throws SQLException {
         log.debug("isFirst called");
         if (this.inProxyMode) {
             return super.isFirst();

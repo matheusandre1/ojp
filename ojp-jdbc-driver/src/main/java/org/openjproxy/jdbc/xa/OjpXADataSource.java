@@ -17,6 +17,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 /**
@@ -57,6 +58,8 @@ public class OjpXADataSource implements XADataSource {
     private String dataSourceName;
     private List<String> serverEndpoints;
 
+    private static final ReentrantLock initLock = new ReentrantLock();
+
     public OjpXADataSource() {
         log.debug("Creating OjpXADataSource");
     }
@@ -73,46 +76,56 @@ public class OjpXADataSource implements XADataSource {
      * This is done lazily when the first XA connection is requested.
      * The GRPC channel is opened once and reused by all XA connections from this datasource.
      */
-    private synchronized void initializeIfNeeded() throws SQLException {
+    private void initializeIfNeeded() throws SQLException {
+        // Fast path - no lock needed if already initialized
         if (statementService != null) {
             return; // Already initialized
         }
-        
-        if (url == null || url.isEmpty()) {
-            throw new SQLException("URL is not set");
-        }
-        
-        // Parse URL to extract datasource name and clean URL
-        UrlParser.UrlParseResult urlParseResult = UrlParser.parseUrlWithDataSource(url);
-        this.cleanUrl = urlParseResult.cleanUrl;
-        this.dataSourceName = urlParseResult.dataSourceName;
-        
-        log.debug("Parsed URL - clean: {}, dataSource: {}", cleanUrl, dataSourceName);
 
-        // Load ojp.properties file and extract datasource-specific configuration
-        Properties ojpProperties = DatasourcePropertiesLoader.loadOjpPropertiesForDataSource(dataSourceName);
-        if (ojpProperties != null && !ojpProperties.isEmpty()) {
-            // Merge ojp.properties with any manually set properties
-            for (String key : ojpProperties.stringPropertyNames()) {
-                if (!properties.containsKey(key)) {
-                    properties.setProperty(key, ojpProperties.getProperty(key));
-                }
+        initLock.lock();
+        try {
+            // Double-check inside lock
+            if (statementService != null) {
+                return;
             }
-            log.debug("Loaded ojp.properties with {} properties for dataSource: {}", ojpProperties.size(), dataSourceName);
+
+            if (url == null || url.isEmpty()) {
+                throw new SQLException("URL is not set");
+            }
+            // Parse URL to extract datasource name and clean URL
+            UrlParser.UrlParseResult urlParseResult = UrlParser.parseUrlWithDataSource(url);
+            this.cleanUrl = urlParseResult.cleanUrl;
+            this.dataSourceName = urlParseResult.dataSourceName;
+
+            log.debug("Parsed URL - clean: {}, dataSource: {}", cleanUrl, dataSourceName);
+
+            // Load ojp.properties file and extract datasource-specific configuration
+            Properties ojpProperties = DatasourcePropertiesLoader.loadOjpPropertiesForDataSource(dataSourceName);
+            if (ojpProperties != null && !ojpProperties.isEmpty()) {
+                // Merge ojp.properties with any manually set properties
+                for (String key : ojpProperties.stringPropertyNames()) {
+                    if (!properties.containsKey(key)) {
+                        properties.setProperty(key, ojpProperties.getProperty(key));
+                    }
+                }
+                log.debug("Loaded ojp.properties with {} properties for dataSource: {}", ojpProperties.size(), dataSourceName);
+            }
+
+            // Initialize StatementService - this will open the GRPC channel on first use
+            log.debug("Initializing StatementServiceGrpcClient for XA datasource: {}", dataSourceName);
+
+            // Detect multinode vs single-node configuration and get the URL to use for connection
+            MultinodeUrlParser.ServiceAndUrl serviceAndUrl = MultinodeUrlParser.getOrCreateStatementService(cleanUrl);
+            statementService = serviceAndUrl.getService();
+            this.serverEndpoints = serviceAndUrl.getServerEndpoints();
+
+            // The GRPC channel will be opened lazily on the first connect() call
+            // Since this StatementService instance is shared by all XA connections from this datasource,
+            // the channel is opened once and reused
+            log.info("StatementService initialized for datasource: {}. GRPC channel will open on first use.", dataSourceName);
+        } finally {
+            initLock.unlock();
         }
-        
-        // Initialize StatementService - this will open the GRPC channel on first use
-        log.debug("Initializing StatementServiceGrpcClient for XA datasource: {}", dataSourceName);
-
-        // Detect multinode vs single-node configuration and get the URL to use for connection
-        MultinodeUrlParser.ServiceAndUrl serviceAndUrl = MultinodeUrlParser.getOrCreateStatementService(cleanUrl);
-        statementService = serviceAndUrl.getService();
-        this.serverEndpoints = serviceAndUrl.getServerEndpoints();
-
-        // The GRPC channel will be opened lazily on the first connect() call
-        // Since this StatementService instance is shared by all XA connections from this datasource,
-        // the channel is opened once and reused
-        log.info("StatementService initialized for datasource: {}. GRPC channel will open on first use.", dataSourceName);
     }
 
 

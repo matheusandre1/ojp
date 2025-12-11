@@ -2,6 +2,8 @@ package openjproxy.jdbc.testutil;
 
 import org.testcontainers.containers.MSSQLServerContainer;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * Singleton SQL Server test container for all SQL Server integration tests.
  * This ensures that all tests share the same SQL Server instance to improve test performance
@@ -15,35 +17,46 @@ public class SQLServerTestContainer {
     private static MSSQLServerContainer<?> container;
     private static boolean isStarted = false;
     private static boolean shutdownHookRegistered = false;
-    
+
+    private static ReentrantLock initLock = new ReentrantLock();
     /**
      * Gets or creates the shared SQL Server test container instance.
      * The container is automatically started on first access.
      * 
      * @return the shared MSSQLServerContainer instance
      */
-    public static synchronized MSSQLServerContainer<?> getInstance() {
-        if (container == null) {
-            container = new MSSQLServerContainer<>(MSSQL_IMAGE)
-                    .acceptLicense();
+    public static  MSSQLServerContainer<?> getInstance() {
+        // Fast-path: if container already created and running, return it without locking
+        MSSQLServerContainer<?> local = container;
+        if (local != null && local.isRunning()) {
+            return local;
         }
-        
-        if (!isStarted) {
-            container.start();
-            isStarted = true;
-            
-            // Add shutdown hook to stop container when JVM exits
-            if (!shutdownHookRegistered) {
-                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                    if (container != null && container.isRunning()) {
-                        container.stop();
-                    }
-                }));
-                shutdownHookRegistered = true;
+
+        initLock.lock();
+        try {
+            if (container == null) {
+                container = new MSSQLServerContainer<>(MSSQL_IMAGE).acceptLicense();
             }
+
+            if (!isStarted) {
+                container.start();
+                isStarted = true;
+
+                // Add shutdown hook to stop container when JVM exits
+                if (!shutdownHookRegistered) {
+                    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                        if (container != null && container.isRunning()) {
+                            container.stop();
+                        }
+                    }));
+                    shutdownHookRegistered = true;
+                }
+            }
+
+            return container;
+        }finally {
+            initLock.unlock();
         }
-        
-        return container;
     }
     
     /**

@@ -29,7 +29,6 @@ public class MultinodeUrlParser {
     // Cache of statement services keyed by server configuration
     private static final Map<String, StatementService> statementServiceCache = new ConcurrentHashMap<>();
 
-
     /**
      * Helper class to return the service, connection URL, server endpoints, and datasource names.
      */
@@ -57,7 +56,8 @@ public class MultinodeUrlParser {
      * @param url the JDBC URL (should be already cleaned of datasource names)
      * @param dataSourceNames optional list of datasource names corresponding to each endpoint
      */
-    public synchronized static ServiceAndUrl getOrCreateStatementService(String url, List<String> dataSourceNames) {
+    // No synchronization needed: computeIfAbsent on ConcurrentHashMap provides the required atomicity.
+    public static ServiceAndUrl getOrCreateStatementService(String url, List<String> dataSourceNames) {
         try {
             // Try to parse as multinode URL
             List<ServerEndpoint> endpoints = MultinodeUrlParser.parseServerEndpoints(url, dataSourceNames);
@@ -121,7 +121,7 @@ public class MultinodeUrlParser {
      * Gets or creates a StatementService implementation based on the URL.
      * Backward compatibility method without datasource names.
      */
-    public synchronized static ServiceAndUrl getOrCreateStatementService(String url) {
+    public static ServiceAndUrl getOrCreateStatementService(String url) {
         return getOrCreateStatementService(url, null);
     }
 

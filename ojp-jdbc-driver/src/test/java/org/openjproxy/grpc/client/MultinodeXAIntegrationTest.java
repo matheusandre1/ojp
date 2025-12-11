@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
@@ -47,6 +48,7 @@ public class MultinodeXAIntegrationTest {
     private static AtomicInteger totalFailedQueries = new AtomicInteger(0);
     private static AtomicInteger nonConnectivityFailedQueries = new AtomicInteger(0);
     private static ExecutorService queryExecutor = new RoundRobinExecutorService(100);
+    private static final ReentrantLock multinodeXaLock = new ReentrantLock();
 
 
     private static AtomikosDataSourceBean xaDataSource;
@@ -252,7 +254,8 @@ public class MultinodeXAIntegrationTest {
         // Load driver if needed
         Class.forName(driverClass);
         Connection conn;
-        synchronized (MultinodeIntegrationTest.class) {
+        multinodeXaLock.lock();
+        try {
             if (xaDataSource == null) {
                 OjpXADataSource xaDataSourceImpl = new OjpXADataSource();
                 //Kept for reference testing with Postgres native XA
@@ -260,7 +263,6 @@ public class MultinodeXAIntegrationTest {
                 xaDataSourceImpl.setUrl(url);
                 xaDataSourceImpl.setUser(user);
                 xaDataSourceImpl.setPassword(password);
-
                 xaDataSource = new AtomikosDataSourceBean();
                 xaDataSource.setUniqueResourceName("ATOMIKOS_OJP_XA_DS");
                 xaDataSource.setXaDataSource(xaDataSourceImpl);
@@ -268,20 +270,21 @@ public class MultinodeXAIntegrationTest {
                 xaDataSource.setMaxPoolSize(ATOMIKOS_MAX_POOL_SIZE);
                 log.info("✓ Atomikos XA DataSource initialized");
             }
-
             // Block below is to increase the chances getting different connections to better test multinode balancing
             // as per Atomikos tends to reuse the very same connection whenever possible.
-            int num = (int)(Math.random() * 10) + 1;
+            int num = (int) (Math.random() * 10) + 1;
             List<Connection> connectionList = new ArrayList<>();
             for (int i = 0; i < num; i++) {
                 connectionList.add(xaDataSource.getConnection());
             }
-            conn = connectionList.remove(connectionList.size()-1);
-            for(Connection c : connectionList){
+            conn = connectionList.remove(connectionList.size() - 1);
+            for (Connection c : connectionList) {
                 c.close();
             }
+            return conn;
+        } finally {
+            multinodeXaLock.unlock();
         }
-        return conn;
     }
 
     private static void runExactQuerySequence(int threadNum, String driverClass, String url, String user, String password) {
