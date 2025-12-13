@@ -391,7 +391,7 @@ Badges can be used on CVs, LinkedIn profiles, and presentations!
 
 ### Documentation
 
-- [README](README.md) - Project overview and quick start
+- [README](https://github.com/Open-J-Proxy/ojp/blob/main/README.md) - Project overview and quick start
 - [Setup and Testing Guide](https://github.com/Open-J-Proxy/ojp/blob/main/documents/code-contributions/setup_and_testing_ojp_source.md) - Detailed development setup
 - [OJP Components](https://github.com/Open-J-Proxy/ojp/blob/main/documents/OJPComponents.md) - Architecture overview
 - [Configuration Guides](https://github.com/Open-J-Proxy/ojp/blob/main/documents/configuration/) - JDBC and server configuration
