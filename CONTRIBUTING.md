@@ -53,7 +53,7 @@ OJP values contributions across multiple tracks:
 - Share OJP on social media
 - Help others in discussions and Discord
 
-For more details on recognition for these contributions, see our [Contributor Recognition Program](documents/contributor-badges/contributor-recognition-program.md).
+For more details on recognition for these contributions, see our [Contributor Recognition Program](https://github.com/Open-J-Proxy/ojp/blob/main/documents/contributor-badges/contributor-recognition-program.md).
 
 ---
 
@@ -96,15 +96,15 @@ Build the project to ensure everything is set up correctly:
 mvn clean install -DskipTests
 ```
 
-For detailed setup instructions, see [Source Code Developer Setup and Local Testing](documents/code-contributions/setup_and_testing_ojp_source.md).
+For detailed setup instructions, see [Source Code Developer Setup and Local Testing](https://github.com/Open-J-Proxy/ojp/blob/main/documents/code-contributions/setup_and_testing_ojp_source.md).
 
 ---
 
 ## Development Workflow
 
-### 1. Create a Feature Branch
+### 1. Create a Feature Branch in Your Fork
 
-Always create a new branch for your work. Use a descriptive name that reflects what you're working on:
+Always create a new branch in your fork for your work. Use a descriptive name that reflects what you're working on:
 
 ```bash
 git checkout -b feature/add-connection-timeout
@@ -143,7 +143,7 @@ mvn test -DenableH2Tests=true
 - `-DenableOracleTests=true` - Oracle tests (requires manual setup)
 - `-DenableSqlServerTests=true` - SQL Server tests
 
-For setting up local databases, see [Run Local Databases](documents/environment-setup/run-local-databases.md).
+For setting up local databases, see [Run Local Databases](https://github.com/Open-J-Proxy/ojp/blob/main/documents/environment-setup/run-local-databases.md).
 
 ### 4. Commit Your Changes
 
@@ -271,15 +271,15 @@ OJP is a multi-module Maven project:
 
 ### Test Coverage
 
-- **All new features must include tests**: Unit tests and/or integration tests
+- **All new features must include tests**: Integration tests are preferred for database-related functionality (transactions, queries, connection management). Unit tests are best for functionality not tied to database behavior (e.g., load balancing, circuit breaker logic).
 - **Bug fixes must include regression tests**: Ensure the bug doesn't happen again
 - **Maintain or improve coverage**: Don't decrease overall test coverage
 
 ### Test Types
 
-1. **Unit Tests**: Test individual classes and methods in isolation
-2. **Integration Tests**: Test interaction between components with real databases
-3. **Multinode Tests**: Test high-availability scenarios (see [Multinode Configuration](documents/multinode/README.md))
+1. **Integration Tests** (preferred for database behavior): Test interaction between components with real databases, including transactions, query execution, and connection management
+2. **Unit Tests** (for non-database logic): Test individual classes and methods in isolation, best for logic like load balancing or circuit breaker functionality
+3. **Multinode Tests**: Test high-availability scenarios (see [Multinode Configuration](https://github.com/Open-J-Proxy/ojp/blob/main/documents/multinode/README.md))
 
 ### Writing Tests
 
@@ -299,7 +299,7 @@ Tests run automatically in GitHub Actions:
 - **Main CI**: Runs H2 tests first (fast fail-fast mechanism)
 - **Specialized Jobs**: Run only after Main CI succeeds (PostgreSQL, MySQL, MariaDB, CockroachDB, Oracle, SQL Server, DB2)
 
-For more details, see [Setup and Testing OJP Source](documents/code-contributions/setup_and_testing_ojp_source.md).
+For more details, see [Setup and Testing OJP Source](https://github.com/Open-J-Proxy/ojp/blob/main/documents/code-contributions/setup_and_testing_ojp_source.md).
 
 ---
 
@@ -368,7 +368,7 @@ We encourage contributors to review each other's PRs:
 
 ## Contributor Recognition
 
-OJP has a comprehensive [Contributor Recognition Program](documents/contributor-badges/contributor-recognition-program.md) that recognizes contributions across all tracks:
+OJP has a comprehensive [Contributor Recognition Program](https://github.com/Open-J-Proxy/ojp/blob/main/documents/contributor-badges/contributor-recognition-program.md) that recognizes contributions across all tracks:
 
 - **🔵 Code Track**: Contributor → Developer → Core Developer
 - **🟢 Testing Track**: Tester → Quality Advocate → Reliability Engineer
@@ -392,10 +392,10 @@ Badges can be used on CVs, LinkedIn profiles, and presentations!
 ### Documentation
 
 - [README](README.md) - Project overview and quick start
-- [Setup and Testing Guide](documents/code-contributions/setup_and_testing_ojp_source.md) - Detailed development setup
-- [OJP Components](documents/OJPComponents.md) - Architecture overview
-- [Configuration Guides](documents/configuration/) - JDBC and server configuration
-- [ADRs](documents/ADRs/) - Architectural Decision Records
+- [Setup and Testing Guide](https://github.com/Open-J-Proxy/ojp/blob/main/documents/code-contributions/setup_and_testing_ojp_source.md) - Detailed development setup
+- [OJP Components](https://github.com/Open-J-Proxy/ojp/blob/main/documents/OJPComponents.md) - Architecture overview
+- [Configuration Guides](https://github.com/Open-J-Proxy/ojp/blob/main/documents/configuration/) - JDBC and server configuration
+- [ADRs](https://github.com/Open-J-Proxy/ojp/blob/main/documents/ADRs/) - Architectural Decision Records
 
 ### Questions?
 
