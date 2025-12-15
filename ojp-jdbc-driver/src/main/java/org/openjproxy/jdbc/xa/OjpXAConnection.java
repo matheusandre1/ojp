@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Implementation of XAConnection that connects to the OJP server for XA operations.
@@ -47,6 +48,7 @@ public class OjpXAConnection implements XAConnection, ServerHealthListener {
     private List<String> serverEndpoints;
     private final List<ConnectionEventListener> listeners = new ArrayList<>();
     private String boundServerAddress; // Phase 2: Track which server this connection is bound to
+    private final ReentrantLock sessionLock = new ReentrantLock();
 
     public OjpXAConnection(StatementService statementService, String url, String user, String password, Properties properties, List<String> serverEndpoints) {
         log.debug("Creating OjpXAConnection for URL: {}", url);
@@ -73,12 +75,15 @@ public class OjpXAConnection implements XAConnection, ServerHealthListener {
      * Lazily create the server-side session when first needed.
      * This avoids creating sessions that may never be used.
      */
-    private synchronized SessionInfo getOrCreateSession() throws SQLException {
+    private SessionInfo getOrCreateSession() throws SQLException {
         if (sessionInfo != null) {
             return sessionInfo;
         }
-        
+        sessionLock.lock();
         try {
+            if (sessionInfo != null) {
+                return sessionInfo;
+            }
             // Connect to server with XA flag enabled
             ConnectionDetails.Builder connBuilder = ConnectionDetails.newBuilder()
                     .setUrl(url)
@@ -115,6 +120,8 @@ public class OjpXAConnection implements XAConnection, ServerHealthListener {
         } catch (Exception e) {
             log.error("Failed to create XA connection session", e);
             throw new SQLException("Failed to create XA connection session", e);
+        }finally {
+            sessionLock.unlock();
         }
     }
     
@@ -125,17 +132,22 @@ public class OjpXAConnection implements XAConnection, ServerHealthListener {
      * @return The new SessionInfo
      * @throws SQLException if session recreation fails
      */
-    synchronized SessionInfo recreateSession() throws SQLException {
-        log.info("Recreating XA session (previous session: {})", 
-                sessionInfo != null ? sessionInfo.getSessionUUID() : "none");
-        
-        // Clear existing session
-        sessionInfo = null;
-        boundServerAddress = null;
-        xaResource = null; // Force recreation of XAResource with new session
-        
-        // Create new session (will use round-robin to select a different server)
-        return getOrCreateSession();
+     SessionInfo recreateSession() throws SQLException {
+        sessionLock.lock();
+        try {
+            log.info("Recreating XA session (previous session: {})",
+                    sessionInfo != null ? sessionInfo.getSessionUUID() : "none");
+
+            // Clear existing session
+            sessionInfo = null;
+            boundServerAddress = null;
+            xaResource = null; // Force recreation of XAResource with new session
+
+            // Create new session (will use round-robin to select a different server)
+            return getOrCreateSession();
+        } finally {
+            sessionLock.unlock();
+        }
     }
 
     @Override

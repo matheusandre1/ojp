@@ -4,7 +4,6 @@
 ![Release](https://img.shields.io/github/v/release/Open-J-Proxy/ojp?include_prereleases)
 
 [![Main CI](https://github.com/Open-J-Proxy/ojp/actions/workflows/main.yml/badge.svg)](https://github.com/Open-J-Proxy/ojp/actions/workflows/main.yml)
-[![Multinode Integration Tests](https://github.com/Open-J-Proxy/ojp/actions/workflows/multinode-integration.yml/badge.svg)](https://github.com/Open-J-Proxy/ojp/actions/workflows/multinode-integration.yml)
 [![Spring Boot/Micronaut/Quarkus Integration](https://github.com/Open-J-Proxy/ojp-framework-integration/actions/workflows/main.yml/badge.svg)](https://github.com/Open-J-Proxy/ojp-framework-integration/actions/workflows/main.yml)
 
 [![License](https://img.shields.io/github/license/Open-J-Proxy/ojp.svg)](https://raw.githubusercontent.com/Open-J-Proxy/ojp/master/LICENSE)
@@ -37,7 +36,7 @@ Get OJP running in under 5 minutes:
 
 ### 1. Start OJP Server
 ```bash
-docker run --rm -d --network host rrobetti/ojp:0.2.0-beta
+docker run --rm -d --network host rrobetti/ojp:0.3.0-beta
 ```
 
 ### 2. Add OJP JDBC Driver to your project
@@ -45,7 +44,7 @@ docker run --rm -d --network host rrobetti/ojp:0.2.0-beta
 <dependency>
     <groupId>org.openjproxy</groupId>
     <artifactId>ojp-jdbc-driver</artifactId>
-    <version>0.2.0-beta</version>
+    <version>0.3.0-beta</version>
 </dependency>
 ```
 
@@ -120,14 +119,22 @@ Welcome to OJP! We appreciate your interest in contributing. This guide will hel
 ---
 
 ## Partners
-<a href=https://www.linkedin.com/in/devsjava/>
+<a href="https://www.linkedin.com/in/devsjava/" target="_blank" rel="noopener">
 <img width="120px" height="120px" src="documents/images/comunidade_brasil_jug.jpeg" alt="Comunidade Brasil JUG" />
 </a>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-<a href=https://github.com/switcherapi>
+<a href="https://github.com/switcherapi" target="_blank" rel="noopener">
 <img width="180px" src="https://github.com/switcherapi/switcherapi-assets/blob/master/logo/switcherapi_grey.png?raw=true" alt="Comunidade Brasil JUG" />
 </a>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-<a href=https://www.meterian.io/>
+<a href="https://www.meterian.io/" target="_blank" rel="noopener">
 <img width="180px" src="https://www.meterian.io/images/brand/meterian_logo_blue.svg" alt="Materian" />
+</a>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://www.youtube.com/@cbrjar" target="_blank" rel="noopener">
+<img width="180px" src="/documents/images/cyber_jar_logo.png" alt="Materian" />
+</a>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://javachallengers.com/career-diagnosis" target="_blank" rel="noopener">
+<img width="150px" src="/documents/images/java_challengers_logo.jpeg" alt="Java Challengers" />
 </a>

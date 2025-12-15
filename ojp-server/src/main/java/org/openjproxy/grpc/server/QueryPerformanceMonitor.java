@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Monitors the performance of SQL operations and tracks their average execution times.
@@ -27,7 +28,8 @@ public class QueryPerformanceMonitor {
     private static class PerformanceRecord {
         private volatile double averageExecutionTime;
         private final AtomicLong executionCount;
-        
+        private final ReentrantLock lock = new ReentrantLock();
+
         public PerformanceRecord(double initialTime) {
             this.averageExecutionTime = initialTime;
             this.executionCount = new AtomicLong(1);
@@ -38,9 +40,12 @@ public class QueryPerformanceMonitor {
          * new_average = ((stored_average * 4) + new_measurement) / 5
          */
         public void updateAverage(double newMeasurement) {
-            synchronized (this) {
+            lock.lock();
+            try {
                 this.averageExecutionTime = ((this.averageExecutionTime * 4) + newMeasurement) / 5;
                 this.executionCount.incrementAndGet();
+            } finally {
+                lock.unlock();
             }
         }
         

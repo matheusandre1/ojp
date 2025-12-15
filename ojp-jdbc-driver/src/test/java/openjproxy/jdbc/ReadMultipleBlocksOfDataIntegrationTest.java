@@ -14,17 +14,22 @@ import static openjproxy.helpers.SqlHelper.executeUpdate;
 
 public class ReadMultipleBlocksOfDataIntegrationTest {
 
-    private static boolean isPostgresTestDisabled;
+    private static boolean isH2TestEnabled;
+    private static boolean isPostgresTestEnabled;
 
     @BeforeAll
     public static void checkTestConfiguration() {
-        isPostgresTestDisabled = Boolean.parseBoolean(System.getProperty("disablePostgresTests", "false"));
+        isH2TestEnabled = Boolean.parseBoolean(System.getProperty("enableH2Tests", "false"));
+        isPostgresTestEnabled = Boolean.parseBoolean(System.getProperty("enablePostgresTests", "false"));
     }
 
     @ParameterizedTest
     @CsvFileSource(resources = "/h2_postgres_connections_with_record_counts.csv")
     public void multiplePagesOfRowsResultSetSuccessful(int totalRecords, String driverClass, String url, String user, String pwd, boolean isXA) throws SQLException, ClassNotFoundException {
-        if (isPostgresTestDisabled && url.contains("postgresql")) {
+        if (!isH2TestEnabled && url.toLowerCase().contains("_h2:")) {
+            return;
+        }
+        if (!isPostgresTestEnabled && url.contains("postgresql")) {
             return;
         }
         Connection conn = DriverManager.getConnection(url, user, pwd);

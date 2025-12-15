@@ -5,12 +5,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>ojp-server</artifactId>
-    <version>0.2.1-snapshot</version>
+    <version>0.3.1-snapshot</version>
 
     <parent>
         <groupId>org.openjproxy</groupId>
         <artifactId>ojp-parent</artifactId>
-        <version>0.2.1-snapshot</version>
+        <version>0.3.1-snapshot</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -26,7 +26,7 @@
         <dependency>
             <groupId>org.openjproxy</groupId>
             <artifactId>ojp-grpc-commons</artifactId>
-            <version>0.2.1-snapshot</version>
+            <version>0.3.1-snapshot</version>
         </dependency>
 
         <!-- OJP Datasource API and default HikariCP provider -->
@@ -80,6 +80,10 @@
             <artifactId>postgresql</artifactId>
             <version>42.7.8</version>
         </dependency>
+
+        <!-- PROPRIETARY DATABASE DRIVERS PLACEHOLDER -->
+        <!-- CI workflows dynamically add Oracle, SQL Server, and DB2 drivers here -->
+        <!-- Do not commit proprietary drivers to this pom.xml -->
 
         <!-- https://mvnrepository.com/artifact/com.zaxxer/HikariCP -->
         <dependency>
@@ -217,6 +221,19 @@
                         </goals>
                         <configuration>
                             <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <!-- Exclude signature files to prevent "Invalid signature file digest" errors -->
+                            <!-- This is necessary when shading signed JARs (added dynamically by CI workflows) -->
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/*.EC</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                             <transformers>
                                 <transformer implementation=
                                                      "org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
@@ -237,7 +254,7 @@
                         <image>eclipse-temurin:22-jre</image>
                     </from>
                     <to>
-                        <image>rrobetti/ojp:0.2.1-snapshot</image>
+                        <image>rrobetti/ojp:0.3.1-snapshot</image>
                     </to>
                     <container>
                         <mainClass>org.openjproxy.grpc.server.GrpcServer</mainClass>
