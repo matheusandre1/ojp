@@ -36,6 +36,8 @@ public class Session {
     private XAConnection xaConnection;
     @Getter
     private XAResource xaResource;
+    @Getter
+    private Object backendSession; // Holds BackendSession for XA pooling (avoids hard dependency)
     private Map<String, ResultSet> resultSetMap;
     private Map<String, Statement> statementMap;
     private Map<String, PreparedStatement> preparedStatementMap;
@@ -71,6 +73,34 @@ public class Session {
                 log.error("Failed to get XAResource from XAConnection", e);
                 throw new RuntimeException("Failed to initialize XA session", e);
             }
+        }
+    }
+    
+    /**
+     * Binds an XAConnection to this session (for lazy XA allocation with pooling).
+     * This method is thread-safe and can only be called once.
+     * 
+     * @param xaConn The XAConnection to bind
+     * @param backendSession The BackendSession wrapper (from XA pool)
+     * @throws IllegalStateException if XAConnection is already bound
+     */
+    public synchronized void bindXAConnection(XAConnection xaConn, Object backendSession) {
+        if (this.xaConnection != null) {
+            throw new IllegalStateException("XAConnection already bound to session");
+        }
+        if (!this.isXA) {
+            throw new IllegalStateException("Cannot bind XAConnection to non-XA session");
+        }
+        
+        try {
+            this.xaConnection = xaConn;
+            this.backendSession = backendSession;
+            this.connection = xaConn.getConnection();
+            this.xaResource = xaConn.getXAResource();
+            log.debug("Bound XAConnection to session {}", sessionUUID);
+        } catch (SQLException e) {
+            log.error("Failed to bind XAConnection", e);
+            throw new RuntimeException("Failed to bind XAConnection", e);
         }
     }
 

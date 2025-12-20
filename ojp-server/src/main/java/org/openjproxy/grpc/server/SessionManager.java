@@ -18,6 +18,7 @@ public interface SessionManager {
     void registerClientUUID(String connectionHash, String clientUUID);
     SessionInfo createSession(String clientUUID, Connection connection);
     SessionInfo createXASession(String clientUUID, Connection connection, XAConnection xaConnection);
+    SessionInfo createDeferredXASession(String clientUUID, String connectionHash);
     Session getSession(SessionInfo sessionInfo);
     Connection getConnection(SessionInfo sessionInfo);
     String registerResultSet(SessionInfo sessionInfo, ResultSet rs);

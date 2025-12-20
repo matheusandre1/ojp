@@ -47,6 +47,16 @@ public class SessionManagerImpl implements SessionManager {
         this.sessionMap.put(session.getSessionUUID(), session);
         return session.getSessionInfo();
     }
+    
+    @Override
+    public SessionInfo createDeferredXASession(String clientUUID, String connectionHash) {
+        log.info("Create deferred XA session for client uuid " + clientUUID);
+        // Create session without XAConnection - will be bound later via bindXAConnection()
+        Session session = new Session(null, connectionHash, clientUUID, true, null);
+        log.info("Deferred XA Session " + session.getSessionUUID() + " created for client uuid " + clientUUID);
+        this.sessionMap.put(session.getSessionUUID(), session);
+        return session.getSessionInfo();
+    }
 
     @Override
     public Session getSession(SessionInfo sessionInfo) {

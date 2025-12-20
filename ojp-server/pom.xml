@@ -40,6 +40,13 @@
             <artifactId>ojp-datasource-hikari</artifactId>
             <version>0.3.2-snapshot</version>
         </dependency>
+        
+        <!-- OJP XA Pool Commons (Phase 1 integration) -->
+        <dependency>
+            <groupId>org.openjproxy</groupId>
+            <artifactId>ojp-xa-pool-commons</artifactId>
+            <version>0.3.2-snapshot</version>
+        </dependency>
 
         <dependency>
             <groupId>io.grpc</groupId>
