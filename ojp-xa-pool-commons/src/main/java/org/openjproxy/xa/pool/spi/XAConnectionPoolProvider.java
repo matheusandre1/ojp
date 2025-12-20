@@ -1,5 +1,7 @@
 package org.openjproxy.xa.pool.spi;
 
+import org.openjproxy.xa.pool.BackendSession;
+
 import javax.sql.XADataSource;
 import java.sql.SQLException;
 import java.util.Map;
@@ -222,4 +224,66 @@ public interface XAConnectionPoolProvider {
     default boolean supportsDatabase(String jdbcUrl, String driverClassName) {
         return true; // Default: support all databases
     }
+    
+    /**
+     * Borrows a backend session from the pool.
+     * 
+     * <p>This method is called by {@link org.openjproxy.xa.pool.XATransactionRegistry}
+     * when starting a new XA transaction branch (TMNOFLAGS). The returned session
+     * will be bound to the transaction and held until commit or rollback.</p>
+     * 
+     * <p>The implementation should:</p>
+     * <ul>
+     *   <li>Obtain an XAConnection from the pool</li>
+     *   <li>Wrap it in a BackendSession implementation</li>
+     *   <li>Validate the connection if configured to do so</li>
+     *   <li>Block if pool is exhausted (up to configured timeout)</li>
+     * </ul>
+     * 
+     * @param xaDataSource the XADataSource (pool) to borrow from
+     * @return a backend session wrapping a pooled XAConnection, never null
+     * @throws Exception if session cannot be borrowed (timeout, pool exhausted, etc.)
+     */
+    BackendSession borrowSession(Object xaDataSource) throws Exception;
+    
+    /**
+     * Returns a backend session to the pool after transaction completion.
+     * 
+     * <p>This method is called after successful commit or rollback. The session
+     * should be reset to a clean state before being returned to the pool.</p>
+     * 
+     * <p>The implementation should:</p>
+     * <ul>
+     *   <li>Call {@link BackendSession#reset()} to clean session state</li>
+     *   <li>Return the XAConnection to the pool</li>
+     *   <li>If reset() fails, invalidate the session instead</li>
+     * </ul>
+     * 
+     * <p><strong>Invariant:</strong> This method is ONLY called after the session
+     * is no longer in PREPARED state (post-commit or post-rollback).</p>
+     * 
+     * @param xaDataSource the XADataSource (pool) to return to
+     * @param session the backend session to return
+     * @throws Exception if session cannot be returned
+     */
+    void returnSession(Object xaDataSource, BackendSession session) throws Exception;
+    
+    /**
+     * Invalidates a backend session, removing it from the pool.
+     * 
+     * <p>This method is called when a session encounters an unrecoverable error
+     * (connection failure, protocol error, reset() failure, etc.).</p>
+     * 
+     * <p>The implementation should:</p>
+     * <ul>
+     *   <li>Close the XAConnection</li>
+     *   <li>Remove it from the pool (do not reuse)</li>
+     *   <li>Update pool statistics</li>
+     * </ul>
+     * 
+     * @param xaDataSource the XADataSource (pool) containing the session
+     * @param session the backend session to invalidate
+     * @throws Exception if session cannot be invalidated
+     */
+    void invalidateSession(Object xaDataSource, BackendSession session) throws Exception;
 }

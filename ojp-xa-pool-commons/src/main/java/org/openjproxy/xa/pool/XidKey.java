@@ -1,5 +1,6 @@
 package org.openjproxy.xa.pool;
 
+import javax.transaction.xa.Xid;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.HexFormat;
@@ -58,6 +59,29 @@ public final class XidKey implements Serializable {
         result = 31 * result + Arrays.hashCode(this.gtrid);
         result = 31 * result + Arrays.hashCode(this.bqual);
         this.hashCode = result;
+    }
+    
+    /**
+     * Creates an XidKey from a standard {@link Xid}.
+     * 
+     * @param xid the XA transaction ID
+     * @return a new XidKey
+     * @throws IllegalArgumentException if xid is null or has null gtrid/bqual
+     */
+    public static XidKey from(Xid xid) {
+        if (xid == null) {
+            throw new IllegalArgumentException("xid cannot be null");
+        }
+        return new XidKey(xid.getFormatId(), xid.getGlobalTransactionId(), xid.getBranchQualifier());
+    }
+    
+    /**
+     * Converts this XidKey to a standard {@link Xid} instance.
+     * 
+     * @return a Xid implementation containing this key's data
+     */
+    public Xid toXid() {
+        return new SimpleXid(formatId, gtrid.clone(), bqual.clone());
     }
     
     /**
@@ -132,5 +156,35 @@ public final class XidKey implements Serializable {
         }
         byte[] truncated = Arrays.copyOf(bytes, maxBytes);
         return toHexString(truncated) + "...";
+    }
+    
+    /**
+     * Simple Xid implementation for converting XidKey back to Xid.
+     */
+    private static class SimpleXid implements Xid {
+        private final int formatId;
+        private final byte[] gtrid;
+        private final byte[] bqual;
+        
+        SimpleXid(int formatId, byte[] gtrid, byte[] bqual) {
+            this.formatId = formatId;
+            this.gtrid = gtrid;
+            this.bqual = bqual;
+        }
+        
+        @Override
+        public int getFormatId() {
+            return formatId;
+        }
+        
+        @Override
+        public byte[] getGlobalTransactionId() {
+            return gtrid;
+        }
+        
+        @Override
+        public byte[] getBranchQualifier() {
+            return bqual;
+        }
     }
 }
