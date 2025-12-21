@@ -82,9 +82,19 @@ public class Session {
      * 
      * @param xaConn The XAConnection to bind
      * @param backendSession The BackendSession wrapper (from XA pool)
-     * @throws IllegalStateException if XAConnection is already bound
+     * @throws IllegalStateException if XAConnection is already bound (unless both parameters are null for unbinding)
      */
     public synchronized void bindXAConnection(XAConnection xaConn, Object backendSession) {
+        // Allow unbinding by passing null for both parameters
+        if (xaConn == null && backendSession == null) {
+            this.xaConnection = null;
+            this.backendSession = null;
+            this.connection = null;
+            this.xaResource = null;
+            log.debug("Unbound XAConnection from session {}", sessionUUID);
+            return;
+        }
+        
         if (this.xaConnection != null) {
             throw new IllegalStateException("XAConnection already bound to session");
         }
