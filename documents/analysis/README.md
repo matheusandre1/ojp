@@ -1,0 +1,68 @@
+# Analysis Documents
+
+This directory contains architectural analysis and design documents for OJP features and enhancements.
+
+## Documents
+
+### XA Pool Implementation Analysis
+**File**: [XA_POOL_IMPLEMENTATION_ANALYSIS.md](XA_POOL_IMPLEMENTATION_ANALYSIS.md)  
+**Date**: 2025-12-20  
+**Status**: Draft for Review
+
+Comprehensive analysis of implementing XA-aware backend session pooling with Apache Commons Pool 2 in OJP proxy server.
+
+**Key Topics**:
+- Current connection pool SPI architecture
+- XA vs standard connection pooling differences
+- Apache Commons Pool 2 fit analysis
+- SPI extension evaluation (conclusion: NOT needed)
+- Two-layer architecture design
+- Implementation roadmap (4 phases)
+- Questions, concerns, and recommendations
+
+**Summary**: Proposes XA-specific pooling layer using Commons Pool 2, separate from the existing ConnectionPoolProvider SPI. Includes detailed component design, state machine requirements, durability considerations, and phased implementation plan.
+
+---
+
+## How to Use This Directory
+
+1. **Propose New Analysis**: Create a new markdown file with descriptive name
+2. **Use Template**: Follow the structure in XA_POOL_IMPLEMENTATION_ANALYSIS.md
+3. **Include Sections**:
+   - Executive Summary
+   - Problem Statement
+   - Current State Analysis
+   - Proposed Solution
+   - Alternatives Considered
+   - Risks and Mitigations
+   - Implementation Plan
+   - Open Questions
+4. **Get Feedback**: Share document with team/community for review
+5. **Update Status**: Mark as Draft/Under Review/Approved/Implemented
+
+---
+
+## Analysis Best Practices
+
+- **Be Thorough**: Cover all aspects including architecture, risks, and alternatives
+- **Include Diagrams**: Use ASCII art, mermaid, or link to external diagrams
+- **Document Decisions**: Explain *why* not just *what*
+- **Consider Trade-offs**: Every design has pros and cons
+- **Ask Questions**: Better to identify unknowns upfront
+- **Provide Opinions**: Architecture requires judgment calls
+- **Link to Code**: Reference existing implementations when relevant
+- **Think Long-term**: Consider maintenance, testing, evolution
+
+---
+
+## Document Lifecycle
+
+```
+Draft → Under Review → Approved → Implementation → Archived
+```
+
+- **Draft**: Initial analysis, work in progress
+- **Under Review**: Shared for feedback, being discussed
+- **Approved**: Team agrees, ready for implementation
+- **Implementation**: Being built according to design
+- **Archived**: Completed, kept for historical reference

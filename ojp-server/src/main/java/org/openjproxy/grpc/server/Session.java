@@ -36,6 +36,8 @@ public class Session {
     private XAConnection xaConnection;
     @Getter
     private XAResource xaResource;
+    @Getter
+    private Object backendSession; // Holds XABackendSession for XA pooling (avoids hard dependency)
     private Map<String, ResultSet> resultSetMap;
     private Map<String, Statement> statementMap;
     private Map<String, PreparedStatement> preparedStatementMap;
@@ -72,6 +74,53 @@ public class Session {
                 throw new RuntimeException("Failed to initialize XA session", e);
             }
         }
+    }
+    
+    /**
+     * Binds an XAConnection to this session (for lazy XA allocation with pooling).
+     * This method is thread-safe and can only be called once.
+     * 
+     * @param xaConn The XAConnection to bind
+     * @param backendSession The XABackendSession wrapper (from XA pool)
+     * @throws IllegalStateException if XAConnection is already bound (unless both parameters are null for unbinding)
+     */
+    public synchronized void bindXAConnection(XAConnection xaConn, Object backendSession) {
+        // Allow unbinding by passing null for both parameters
+        if (xaConn == null && backendSession == null) {
+            this.xaConnection = null;
+            this.backendSession = null;
+            this.connection = null;
+            this.xaResource = null;
+            log.debug("Unbound XAConnection from session {}", sessionUUID);
+            return;
+        }
+        
+        if (this.xaConnection != null) {
+            throw new IllegalStateException("XAConnection already bound to session");
+        }
+        if (!this.isXA) {
+            throw new IllegalStateException("Cannot bind XAConnection to non-XA session");
+        }
+        
+        try {
+            this.xaConnection = xaConn;
+            this.backendSession = backendSession;
+            this.connection = xaConn.getConnection();
+            this.xaResource = xaConn.getXAResource();
+            log.debug("Bound XAConnection to session {}", sessionUUID);
+        } catch (SQLException e) {
+            log.error("Failed to bind XAConnection", e);
+            throw new RuntimeException("Failed to bind XAConnection", e);
+        }
+    }
+    
+    /**
+     * Sets the backend session reference for XA pooling.
+     * 
+     * @param backendSession The XABackendSession from the XA pool
+     */
+    public void setBackendSession(Object backendSession) {
+        this.backendSession = backendSession;
     }
 
     public SessionInfo getSessionInfo() {
@@ -158,6 +207,20 @@ public class Session {
             return;
         }
 
+        // For XA connections with pooled XABackendSession, return session to pool first
+        if (isXA && backendSession != null) {
+            try {
+                log.debug("Returning XABackendSession to pool for session {}", sessionUUID);
+                if (backendSession instanceof org.openjproxy.xa.pool.XABackendSession) {
+                    org.openjproxy.xa.pool.XABackendSession pooledSession = 
+                        (org.openjproxy.xa.pool.XABackendSession) backendSession;
+                    pooledSession.close(); // Returns to pool
+                }
+            } catch (Exception e) {
+                log.error("Error returning XABackendSession to pool", e);
+            }
+        }
+
         // For XA connections, close the XA connection (which also closes the logical connection)
         // Do NOT close the regular connection as it would trigger auto-commit changes
         if (isXA && xaConnection != null) {
@@ -180,6 +243,7 @@ public class Session {
         this.connection = null;
         this.xaConnection = null;
         this.xaResource = null;
+        this.backendSession = null;
         this.attrMap = null;
     }
 

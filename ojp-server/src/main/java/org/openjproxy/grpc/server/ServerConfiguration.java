@@ -34,6 +34,7 @@ public class ServerConfiguration {
     private static final String SLOW_QUERY_SLOW_SLOT_TIMEOUT_KEY = "ojp.server.slowQuerySegregation.slowSlotTimeout";
     private static final String SLOW_QUERY_FAST_SLOT_TIMEOUT_KEY = "ojp.server.slowQuerySegregation.fastSlotTimeout";
     private static final String SLOW_QUERY_UPDATE_GLOBAL_AVG_INTERVAL_KEY = "ojp.server.slowQuerySegregation.updateGlobalAvgInterval";
+    
 
     // Default values
     public static final int DEFAULT_SERVER_PORT = CommonConstants.DEFAULT_PORT_NUMBER;
@@ -55,6 +56,14 @@ public class ServerConfiguration {
     public static final long DEFAULT_SLOW_QUERY_SLOW_SLOT_TIMEOUT = 120000; // 120 seconds slow slot timeout
     public static final long DEFAULT_SLOW_QUERY_FAST_SLOT_TIMEOUT = 60000; // 60 seconds fast slot timeout
     public static final long DEFAULT_SLOW_QUERY_UPDATE_GLOBAL_AVG_INTERVAL = 300; // 300 seconds (5 minutes) global average update interval
+    
+    // XA pooling default values
+    public static final boolean DEFAULT_XA_POOLING_ENABLED = true; // Enable XA pooling by default
+    public static final int DEFAULT_XA_MAX_POOL_SIZE = 10;
+    public static final int DEFAULT_XA_MIN_IDLE = 2;
+    public static final long DEFAULT_XA_MAX_WAIT_MILLIS = 30000; // 30 seconds
+    public static final long DEFAULT_XA_IDLE_TIMEOUT_MINUTES = 10;
+    public static final long DEFAULT_XA_MAX_LIFETIME_MINUTES = 30;
 
     // Configuration values
     private final int serverPort;
@@ -75,6 +84,7 @@ public class ServerConfiguration {
     private final long slowQuerySlowSlotTimeout;
     private final long slowQueryFastSlotTimeout;
     private final long slowQueryUpdateGlobalAvgInterval;
+    
 
     public ServerConfiguration() {
         this.serverPort = getIntProperty(SERVER_PORT_KEY, DEFAULT_SERVER_PORT);
@@ -95,6 +105,7 @@ public class ServerConfiguration {
         this.slowQuerySlowSlotTimeout = getLongProperty(SLOW_QUERY_SLOW_SLOT_TIMEOUT_KEY, DEFAULT_SLOW_QUERY_SLOW_SLOT_TIMEOUT);
         this.slowQueryFastSlotTimeout = getLongProperty(SLOW_QUERY_FAST_SLOT_TIMEOUT_KEY, DEFAULT_SLOW_QUERY_FAST_SLOT_TIMEOUT);
         this.slowQueryUpdateGlobalAvgInterval = getLongProperty(SLOW_QUERY_UPDATE_GLOBAL_AVG_INTERVAL_KEY, DEFAULT_SLOW_QUERY_UPDATE_GLOBAL_AVG_INTERVAL);
+        
 
         logConfigurationSummary();
     }
@@ -267,4 +278,5 @@ public class ServerConfiguration {
     public long getSlowQueryUpdateGlobalAvgInterval() {
         return slowQueryUpdateGlobalAvgInterval;
     }
+    
 }

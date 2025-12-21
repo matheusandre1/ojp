@@ -1,0 +1,126 @@
+# ServiceLoader registration file for XAConnectionPoolProvider implementations.
+#
+# This file enables the Java ServiceLoader mechanism to automatically discover
+# and load XA connection pool provider implementations at runtime.
+#
+# HOW SERVICELOADER WORKS:
+# ------------------------
+# When XAConnectionPoolProviderRegistry calls ServiceLoader.load(XAConnectionPoolProvider.class),
+# the Java runtime scans all JAR files in the classpath for files at this exact path:
+#   META-INF/services/org.openjproxy.xa.pool.spi.XAConnectionPoolProvider
+#
+# It then instantiates each class listed in these files (using no-args constructor)
+# and makes them available through the ServiceLoader iterator.
+#
+# PROVIDER REGISTRATION:
+# ----------------------
+# List the fully qualified class names of all XAConnectionPoolProvider 
+# implementations, one per line. Lines starting with # are comments.
+#
+# The ServiceLoader will:
+# 1. Load all provider classes listed in this file
+# 2. Instantiate them using the default (no-args) constructor
+# 3. Make them available for selection by XAConnectionPoolProviderRegistry
+#
+# PROVIDER SELECTION:
+# -------------------
+# XAConnectionPoolProviderRegistry selects providers based on:
+# 1. Priority: Higher priority value = higher precedence (100 = highest, 0 = lowest)
+# 2. Availability: Provider.isAvailable() must return true
+# 3. The provider with the HIGHEST priority that is available wins
+#
+# PRIORITY SYSTEM:
+# ----------------
+# - 100: Highest priority (default universal providers like CommonsPool2)
+# - 50:  Medium priority (vendor-specific providers like Oracle UCP for Oracle databases)
+# - 0:   Lowest priority (fallback providers)
+#
+# This system allows vendor-specific providers to automatically take precedence
+# when their specific database is detected, while falling back to universal
+# providers for all other databases.
+#
+# CURRENT PROVIDERS:
+# ------------------
+# - CommonsPool2XAProvider: Universal provider using Apache Commons Pool 2
+#   Priority: 100 (highest - default provider)
+#   Works with: PostgreSQL, SQL Server, DB2, MySQL, MariaDB, Oracle, and all XA-capable databases
+#   Uses reflection to avoid vendor dependencies
+#
+# ADDING NEW PROVIDERS:
+# ---------------------
+# To add a custom provider (e.g., Oracle UCP for optimized Oracle database support):
+#
+# 1. Implement the XAConnectionPoolProvider interface:
+#    ```java
+#    package com.example.myxa;
+#    
+#    public class OracleUCPXAProvider implements XAConnectionPoolProvider {
+#        @Override
+#        public String id() { return "oracle-ucp"; }
+#        
+#        @Override
+#        public int getPriority() { return 50; } // Medium priority for Oracle-specific
+#        
+#        @Override
+#        public boolean isAvailable() {
+#            // Return true only if Oracle UCP is on classpath
+#            try {
+#                Class.forName("oracle.ucp.jdbc.PoolDataSource");
+#                return true;
+#            } catch (ClassNotFoundException e) {
+#                return false;
+#            }
+#        }
+#        
+#        @Override
+#        public XAConnectionPool createPool(String databaseUrl, Map<String, String> config) {
+#            // Create and return Oracle UCP-based pool
+#        }
+#    }
+#    ```
+#
+# 2. Create your own META-INF/services file in your JAR:
+#    File: META-INF/services/org.openjproxy.xa.pool.spi.XAConnectionPoolProvider
+#    Content: com.example.myxa.OracleUCPXAProvider
+#
+# 3. Include your JAR in the classpath alongside ojp-xa-pool-commons
+#
+# 4. The ServiceLoader will automatically discover both providers
+#
+# 5. Your Oracle UCP provider (priority 50) will be selected for Oracle databases,
+#    while CommonsPool2XAProvider (priority 100) remains the default for all others
+#
+# WHY THIS FILE IS IN ojp-xa-pool-commons:
+# -----------------------------------------
+# This file registers the default CommonsPool2XAProvider that ships with OJP.
+# Additional providers in separate JARs will have their own ServiceLoader files.
+# All files are merged at runtime by the ServiceLoader mechanism.
+#
+# TESTING:
+# --------
+# To verify your provider is registered:
+# ```java
+# ServiceLoader<XAConnectionPoolProvider> loader = ServiceLoader.load(XAConnectionPoolProvider.class);
+# for (XAConnectionPoolProvider provider : loader) {
+#     System.out.println("Found provider: " + provider.id() + " (priority: " + provider.getPriority() + ")");
+# }
+# ```
+#
+# TROUBLESHOOTING:
+# ----------------
+# If your provider isn't loading:
+# - Ensure the file path is exactly: META-INF/services/org.openjproxy.xa.pool.spi.XAConnectionPoolProvider
+# - Ensure the class name is fully qualified (includes package)
+# - Ensure the class has a public no-args constructor
+# - Check for typos in the class name
+# - Verify the JAR is in the classpath
+# - Enable debug logging: -Djava.util.logging.config.file=logging.properties
+#
+# REFERENCES:
+# -----------
+# - Java ServiceLoader documentation: https://docs.oracle.com/javase/8/docs/api/java/util/ServiceLoader.html
+# - Implementation guide: /documents/xa-pool-spi/IMPLEMENTATION_GUIDE.md
+# - Oracle UCP example: /documents/xa-pool-spi/ORACLE_UCP_EXAMPLE.md
+
+# Default universal provider (priority 100 - highest)
+org.openjproxy.xa.pool.commons.CommonsPool2XAProvider
