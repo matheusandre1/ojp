@@ -322,18 +322,15 @@ public class XATransactionRegistry {
             ctx.getSession().getXAResource().commit(actualXid, onePhase);
             
             ctx.transitionToCommitted();
-            returnSessionToPool(ctx);
+            // NOTE: Do NOT return session to pool here - session stays bound to OJP Session
+            // for multiple transactions. Pool return happens when OJP Session terminates.
             contexts.remove(xid);
             
             log.info("XA transaction committed: xid={}, onePhase={}", xid, onePhase);
         } catch (XAException e) {
             log.error("XA error during commit for xid=" + xid, e);
-            // Best effort: still clean up context and return session
-            try {
-                returnSessionToPool(ctx);
-            } catch (Exception e2) {
-                log.error("Failed to return session to pool after commit error", e2);
-            }
+            // Best effort: still clean up context
+            // NOTE: Do NOT return session to pool - it stays with OJP Session
             contexts.remove(xid);
             throw e;  // Rethrow original XAException to preserve error code
         } catch (IllegalStateException e) {
@@ -341,12 +338,8 @@ public class XATransactionRegistry {
             throw new XAException(XAException.XAER_PROTO);
         } catch (Exception e) {
             log.error("Unexpected error during commit for xid=" + xid, e);
-            // Best effort: still clean up context and return session
-            try {
-                returnSessionToPool(ctx);
-            } catch (Exception e2) {
-                log.error("Failed to return session to pool after commit error", e2);
-            }
+            // Best effort: still clean up context
+            // NOTE: Do NOT return session to pool - it stays with OJP Session
             contexts.remove(xid);
             XAException xae = new XAException(XAException.XAER_RMERR);
             xae.initCause(e);  // Preserve original exception
@@ -389,28 +382,21 @@ public class XATransactionRegistry {
             ctx.getSession().getXAResource().rollback(actualXid);
             
             ctx.transitionToRolledBack();
-            returnSessionToPool(ctx);
+            // NOTE: Do NOT return session to pool here - session stays bound to OJP Session
+            // for multiple transactions. Pool return happens when OJP Session terminates.
             contexts.remove(xid);
             
             log.info("XA transaction rolled back: xid={}", xid);
         } catch (XAException e) {
             log.error("XA error during rollback for xid=" + xid, e);
-            // Best effort: still clean up context and return session
-            try {
-                returnSessionToPool(ctx);
-            } catch (Exception e2) {
-                log.error("Failed to return session to pool after rollback error", e2);
-            }
+            // Best effort: still clean up context
+            // NOTE: Do NOT return session to pool - it stays with OJP Session
             contexts.remove(xid);
             throw e;  // Rethrow original XAException to preserve error code
         } catch (Exception e) {
             log.error("Unexpected error during rollback for xid=" + xid, e);
-            // Best effort: still clean up context and return session
-            try {
-                returnSessionToPool(ctx);
-            } catch (Exception e2) {
-                log.error("Failed to return session to pool after rollback error", e2);
-            }
+            // Best effort: still clean up context
+            // NOTE: Do NOT return session to pool - it stays with OJP Session
             contexts.remove(xid);
             XAException xae = new XAException(XAException.XAER_RMERR);
             xae.initCause(e);  // Preserve original exception

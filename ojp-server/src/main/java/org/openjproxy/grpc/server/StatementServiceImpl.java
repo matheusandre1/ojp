@@ -1954,8 +1954,8 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
                 XidKey xidKey = XidKey.from(convertXid(request.getXid()));
                 registry.xaCommit(xidKey, request.getOnePhase());
                 
-                // After commit, backend session is returned to pool - unbind from session
-                session.bindXAConnection(null, null); // Clear binding
+                // NOTE: Do NOT unbind XAConnection here - it stays bound for session lifetime
+                // BackendSession will be returned to pool when OJP Session terminates
             } else {
                 // **OLD PATH: Pass-through (legacy)**
                 if (session.getXaResource() == null) {
@@ -2003,8 +2003,8 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
                 XidKey xidKey = XidKey.from(convertXid(request.getXid()));
                 registry.xaRollback(xidKey);
                 
-                // After rollback, backend session is returned to pool - unbind from session
-                session.bindXAConnection(null, null); // Clear binding
+                // NOTE: Do NOT unbind XAConnection here - it stays bound for session lifetime
+                // BackendSession will be returned to pool when OJP Session terminates
             } else {
                 // **OLD PATH: Pass-through (legacy)**
                 if (session.getXaResource() == null) {

@@ -207,6 +207,20 @@ public class Session {
             return;
         }
 
+        // For XA connections with pooled BackendSession, return session to pool first
+        if (isXA && backendSession != null) {
+            try {
+                log.debug("Returning BackendSession to pool for session {}", sessionUUID);
+                if (backendSession instanceof org.openjproxy.xa.pool.BackendSession) {
+                    org.openjproxy.xa.pool.BackendSession pooledSession = 
+                        (org.openjproxy.xa.pool.BackendSession) backendSession;
+                    pooledSession.close(); // Returns to pool
+                }
+            } catch (Exception e) {
+                log.error("Error returning BackendSession to pool", e);
+            }
+        }
+
         // For XA connections, close the XA connection (which also closes the logical connection)
         // Do NOT close the regular connection as it would trigger auto-commit changes
         if (isXA && xaConnection != null) {
@@ -229,6 +243,7 @@ public class Session {
         this.connection = null;
         this.xaConnection = null;
         this.xaResource = null;
+        this.backendSession = null;
         this.attrMap = null;
     }
 
