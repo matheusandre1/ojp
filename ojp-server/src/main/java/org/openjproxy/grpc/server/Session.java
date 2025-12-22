@@ -28,8 +28,7 @@ public class Session {
     private final String connectionHash;
     @Getter
     private final String clientUUID;
-    @Getter
-    private Connection connection;
+    private Connection connection;  // Removed @Getter - custom getter below
     @Getter
     private final boolean isXA;
     @Getter
@@ -121,6 +120,41 @@ public class Session {
      */
     public void setBackendSession(Object backendSession) {
         this.backendSession = backendSession;
+    }
+    
+    /**
+     * Refreshes the connection reference from the backend session.
+     * This is called after XA transaction sanitization to update the connection
+     * reference to the new logical connection obtained from the XAConnection.
+     * 
+     * @throws SQLException if unable to get connection from backend session
+     */
+    public void refreshConnection() throws SQLException {
+        if (backendSession != null && backendSession instanceof org.openjproxy.xa.pool.XABackendSession) {
+            org.openjproxy.xa.pool.XABackendSession xaBackendSession = 
+                (org.openjproxy.xa.pool.XABackendSession) backendSession;
+            this.connection = xaBackendSession.getConnection();
+            log.debug("Refreshed connection reference in session {}", sessionUUID);
+        }
+    }
+    
+    /**
+     * Gets the JDBC connection for this session.
+     * For XA sessions with pooled backend sessions, this returns the current
+     * connection from the backend session (which may change after sanitization).
+     * 
+     * @return the JDBC connection
+     */
+    public Connection getConnection() {
+        // For XA sessions with backend session, always get fresh connection reference
+        // This ensures we get the updated connection after sanitization
+        if (isXA && backendSession != null && backendSession instanceof org.openjproxy.xa.pool.XABackendSession) {
+            org.openjproxy.xa.pool.XABackendSession xaBackendSession = 
+                (org.openjproxy.xa.pool.XABackendSession) backendSession;
+            return xaBackendSession.getConnection();
+        }
+        // For non-XA sessions or pass-through XA sessions, return stored connection
+        return this.connection;
     }
 
     public SessionInfo getSessionInfo() {

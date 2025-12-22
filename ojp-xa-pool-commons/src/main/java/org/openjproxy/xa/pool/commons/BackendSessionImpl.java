@@ -172,20 +172,11 @@ public class BackendSessionImpl implements XABackendSession {
         log.debug("Sanitizing backend session after transaction: {}", sessionId);
         
         try {
-            // Close the current logical connection
-            // This tells the XAConnection we're done with this transaction context
-            if (connection != null) {
-                try {
-                    connection.close();
-                    log.debug("Closed logical connection during sanitization");
-                } catch (SQLException e) {
-                    log.warn("Error closing logical connection during sanitization: {}", e.getMessage());
-                    // Continue anyway - we'll get a fresh one
-                }
-            }
-            
             // Get a fresh logical connection from the XAConnection
-            // This resets the XA state to IDLE in most XA drivers (PostgreSQL, MySQL, etc.)
+            // According to JDBC spec, calling getConnection() on an XAConnection
+            // automatically closes the previous logical connection and returns a new one.
+            // This resets the XA state to IDLE in most XA drivers (PostgreSQL, MySQL, Oracle, etc.)
+            // We do NOT explicitly close the old connection first - the XAConnection handles that.
             this.connection = xaConnection.getConnection();
             
             // The XAResource should remain the same (from the XAConnection)
