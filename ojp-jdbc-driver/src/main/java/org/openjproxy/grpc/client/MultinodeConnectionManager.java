@@ -54,7 +54,8 @@ public class MultinodeConnectionManager {
     private final HealthCheckConfig healthCheckConfig;
     private final AtomicLong lastHealthCheckTimestamp;
     private final HealthCheckValidator healthCheckValidator;
-    private final ConnectionTracker connectionTracker;
+    private final ConnectionTracker connectionTracker; // Legacy - kept for backward compatibility
+    private final SessionTracker sessionTracker; // New unified tracker
     private final ConnectionRedistributor connectionRedistributor;
     private XAConnectionRedistributor xaConnectionRedistributor;
     
@@ -92,7 +93,8 @@ public class MultinodeConnectionManager {
         this.healthListeners = new ArrayList<>(); // Phase 2: Initialize listener list
         this.healthCheckConfig = healthCheckConfig != null ? healthCheckConfig : HealthCheckConfig.createDefault();
         this.lastHealthCheckTimestamp = new AtomicLong(0);
-        this.connectionTracker = connectionTracker != null ? connectionTracker : new ConnectionTracker();
+        this.connectionTracker = connectionTracker != null ? connectionTracker : new ConnectionTracker(); // Legacy
+        this.sessionTracker = new SessionTracker(); // New unified tracker
         this.healthCheckValidator = new HealthCheckValidator(this.healthCheckConfig, this);
         this.connectionRedistributor = new ConnectionRedistributor(this.connectionTracker, this.healthCheckConfig);
         
@@ -135,30 +137,41 @@ public class MultinodeConnectionManager {
     /**
      * Establishes a connection by calling connect() on servers.
      * 
-     * For XA connections (isXA=true): Uses round-robin to select ONE server to ensure
-     * proper load distribution and avoid creating orphaned sessions.
+     * With unified mode enabled (default):
+     * - Both XA and non-XA connections connect to ALL servers
+     * - Ensures all servers have datasource configuration
+     * - Sessions tracked via SessionTracker for accurate load balancing
      * 
-     * For non-XA connections: Connects to ALL servers to ensure all servers have the 
-     * datasource information so that subsequent operations can be routed to any server.
+     * With unified mode disabled (legacy):
+     * - XA connections: Uses round-robin to select ONE server
+     * - Non-XA connections: Connects to ALL servers
      * 
      * Returns the SessionInfo from the successful connection.
      */
     public SessionInfo connect(ConnectionDetails connectionDetails) throws SQLException {
         boolean isXA = connectionDetails.getIsXA();
+        boolean useUnifiedMode = healthCheckConfig.isUnifiedModeEnabled();
         
-        log.info("=== connect() called: isXA={} ===", isXA);
+        log.info("=== connect() called: isXA={}, unifiedMode={} ===", isXA, useUnifiedMode);
         
         // Try to trigger health check (time-based, non-blocking)
         if (healthCheckConfig.isRedistributionEnabled()) {
             tryTriggerHealthCheck();
         }
         
-        if (isXA) {
-            // For XA connections, use round-robin to select a single server
-            return connectToSingleServer(connectionDetails);
-        } else {
-            // For non-XA connections, connect to all servers (existing behavior)
+        if (useUnifiedMode) {
+            // UNIFIED MODE: Both XA and non-XA connect to all servers
+            log.debug("Using unified mode: connecting to all servers for isXA={}", isXA);
             return connectToAllServers(connectionDetails);
+        } else {
+            // LEGACY MODE: Different behavior for XA vs non-XA
+            if (isXA) {
+                // For XA connections, use round-robin to select a single server
+                return connectToSingleServer(connectionDetails);
+            } else {
+                // For non-XA connections, connect to all servers
+                return connectToAllServers(connectionDetails);
+            }
         }
     }
     
@@ -399,9 +412,19 @@ public class MultinodeConnectionManager {
     
     /**
      * Gets the connection tracker for integration with XA data sources.
+     * @deprecated Use getSessionTracker() for unified tracking
      */
+    @Deprecated
     public ConnectionTracker getConnectionTracker() {
         return connectionTracker;
+    }
+    
+    /**
+     * Gets the session tracker for unified session-based load balancing.
+     * Replaces ConnectionTracker with lighter-weight session tracking.
+     */
+    public SessionTracker getSessionTracker() {
+        return sessionTracker;
     }
     
     /**
@@ -773,30 +796,29 @@ public class MultinodeConnectionManager {
     }
     
     /**
-     * Selects the healthy server with the fewest active connections.
+     * Selects the healthy server with the fewest active sessions.
      * This provides automatic load balancing by directing new connections
      * to the least-loaded server.
      * 
-     * When all servers have equal connection counts (e.g., in non-XA mode where 
-     * ConnectionTracker is empty), falls back to true round-robin selection to 
-     * ensure proper load distribution.
+     * Uses SessionTracker for accurate session counts across both XA and non-XA connections.
+     * When all servers have equal session counts, falls back to round-robin selection.
      * 
      * @param healthyServers List of healthy servers to choose from
-     * @return The server with the lowest connection count
+     * @return The server with the lowest session count
      */
     private ServerEndpoint selectByLeastConnections(List<ServerEndpoint> healthyServers) {
         if (healthyServers.isEmpty()) {
             return null;
         }
         
-        // Get current connection counts per server
-        Map<ServerEndpoint, Integer> connectionCounts = connectionTracker.getCounts();
+        // Get current session counts per server from SessionTracker
+        Map<ServerEndpoint, Integer> sessionCounts = sessionTracker.getSessionCounts();
         
-        // Check if all servers have the same count (including when tracker is empty)
+        // Check if all servers have the same count
         boolean allEqual = true;
         Integer firstCount = null;
         for (ServerEndpoint server : healthyServers) {
-            int count = connectionCounts.getOrDefault(server, 0);
+            int count = sessionCounts.getOrDefault(server, 0);
             if (firstCount == null) {
                 firstCount = count;
             } else if (firstCount != count) {
@@ -807,21 +829,21 @@ public class MultinodeConnectionManager {
         
         // If all counts are equal, use true round-robin instead of load-aware
         if (allEqual) {
-            log.debug("All servers have equal load ({}), using round-robin selection", firstCount);
+            log.debug("All servers have equal session load ({}), using round-robin selection", firstCount);
             return selectByRoundRobin(healthyServers);
         }
         
-        // Find server with minimum connections
+        // Find server with minimum sessions
         ServerEndpoint selected = healthyServers.stream()
                 .min((s1, s2) -> {
-                    int count1 = connectionCounts.getOrDefault(s1, 0);
-                    int count2 = connectionCounts.getOrDefault(s2, 0);
+                    int count1 = sessionCounts.getOrDefault(s1, 0);
+                    int count2 = sessionCounts.getOrDefault(s2, 0);
                     return Integer.compare(count1, count2);
                 })
                 .orElse(healthyServers.get(0));
         
-        int selectedCount = connectionCounts.getOrDefault(selected, 0);
-        log.debug("Selected server {} with {} active connections (load-aware)", 
+        int selectedCount = sessionCounts.getOrDefault(selected, 0);
+        log.debug("Selected server {} with {} active sessions (load-aware)", 
                 selected.getAddress(), selectedCount);
         
         return selected;
@@ -981,6 +1003,9 @@ public class MultinodeConnectionManager {
      * This is used for session stickiness - subsequent operations with this sessionUUID
      * will be routed to the bound server.
      * 
+     * Registers the session with both sessionToServerMap (for backward compatibility)
+     * and SessionTracker (for unified load balancing).
+     * 
      * @param sessionUUID The session identifier
      * @param targetServer The target server in host:port format
      */
@@ -1007,6 +1032,10 @@ public class MultinodeConnectionManager {
         
         if (matchingEndpoint != null) {
             ServerEndpoint previous = sessionToServerMap.put(sessionUUID, matchingEndpoint);
+            
+            // Register with SessionTracker for unified load balancing
+            sessionTracker.registerSession(sessionUUID, matchingEndpoint);
+            
             if (previous == null) {
                 log.info("Bound session {} to target server {}", sessionUUID, targetServer);
             } else {
@@ -1043,12 +1072,17 @@ public class MultinodeConnectionManager {
     
     /**
      * Removes the session binding for a given session UUID.
+     * Unregisters from both sessionToServerMap and SessionTracker.
      * 
      * @param sessionUUID The session identifier
      */
     public void unbindSession(String sessionUUID) {
         if (sessionUUID != null && !sessionUUID.isEmpty()) {
             ServerEndpoint removed = sessionToServerMap.remove(sessionUUID);
+            
+            // Unregister from SessionTracker
+            sessionTracker.unregisterSession(sessionUUID);
+            
             if (removed != null) {
                 log.debug("Unbound session {} from server {}", sessionUUID, removed.getAddress());
             }
