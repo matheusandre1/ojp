@@ -1093,10 +1093,7 @@ jobs:
           sleep 20
 
       # Verify XA connection pooling is working
-      # NOTE: This check uses < 1000 as a placeholder threshold.
-      # The actual expected connection count for XA tests may be different than non-XA tests
-      # due to how Atomikos and XA connection pooling works.
-      # This will be refined when XA connection pool is implemented in OJP server.
+      # Check for 20-25 connections similar to non-XA multinode test
       - name: Check PostgreSQL connections during XA test
         run: |
           echo "Checking PostgreSQL connections..."
@@ -1108,25 +1105,24 @@ jobs:
             CONNECTION_COUNT=$(echo $CONNECTION_COUNT | tr -d '[:space:]')
             echo "Current connections: $CONNECTION_COUNT (elapsed: ${ELAPSED}s)"
             
-            # Placeholder check: just verify we don't exceed 1000 connections
-            # This will be refined when XA connection pool is implemented in OJP server
-            if [ "$CONNECTION_COUNT" -ge 1 ] && [ "$CONNECTION_COUNT" -lt 1000 ]; then
-              echo "✓ Connection count is within placeholder range: 1 ≤ $CONNECTION_COUNT < 1000"
+            # Check for 20-25 connections (same as non-XA multinode test)
+            if [ "$CONNECTION_COUNT" -ge 20 ] && [ "$CONNECTION_COUNT" -le 25 ]; then
+              echo "✓ Connection count is within expected range: 20 ≤ $CONNECTION_COUNT ≤ 25"
               PGPASSWORD=testpassword psql -h 127.0.0.1 -U testuser -d defaultdb -c "SELECT datname, COUNT(*) AS connections FROM pg_stat_activity WHERE datname='defaultdb' GROUP BY datname ORDER BY connections DESC;"
               break
-            elif [ "$CONNECTION_COUNT" -ge 1000 ]; then
-              echo "✗ ERROR: Connection count ($CONNECTION_COUNT) exceeds placeholder maximum of 1000!"
+            elif [ "$CONNECTION_COUNT" -gt 25 ]; then
+              echo "✗ ERROR: Connection count ($CONNECTION_COUNT) exceeds expected maximum of 25!"
               PGPASSWORD=testpassword psql -h 127.0.0.1 -U testuser -d defaultdb -c "SELECT datname, COUNT(*) AS connections FROM pg_stat_activity WHERE datname='defaultdb' GROUP BY datname ORDER BY connections DESC;"
               exit 1
             else
-              echo "Waiting for connections to reach at least 1... (currently: $CONNECTION_COUNT)"
+              echo "Waiting for connections to reach at least 20... (currently: $CONNECTION_COUNT)"
               sleep 2
               ELAPSED=$((ELAPSED + 2))
             fi
           done
           
           if [ $ELAPSED -ge $TIMEOUT ]; then
-            echo "✗ ERROR: Timeout after ${TIMEOUT}s - connection count never reached 1 (current: $CONNECTION_COUNT)"
+            echo "✗ ERROR: Timeout after ${TIMEOUT}s - connection count never reached 20 (current: $CONNECTION_COUNT)"
             exit 1
           fi
 

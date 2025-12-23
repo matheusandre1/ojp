@@ -3,6 +3,9 @@ package org.openjproxy.jdbc.xa;
 import com.openjproxy.grpc.SessionInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.openjproxy.database.DatabaseUtils;
+import org.openjproxy.grpc.client.MultinodeConnectionManager;
+import org.openjproxy.grpc.client.MultinodeStatementService;
+import org.openjproxy.grpc.client.ServerEndpoint;
 import org.openjproxy.jdbc.Connection;
 
 import java.sql.SQLException;
@@ -18,12 +21,46 @@ class OjpXALogicalConnection extends Connection {
     private final OjpXAConnection xaConnection;
     private boolean closed = false;
 
-    OjpXALogicalConnection(OjpXAConnection xaConnection, SessionInfo sessionInfo, String url) throws SQLException {
+    OjpXALogicalConnection(OjpXAConnection xaConnection, SessionInfo sessionInfo, String url, String boundServerAddress) throws SQLException {
         // Pass the statementService and dbName to the parent Connection class
         super(sessionInfo, xaConnection.getStatementService(), DatabaseUtils.resolveDbName(url));
         this.xaConnection = xaConnection;
         
+        // Register with ConnectionTracker if using multinode - this ensures XAConnectionRedistributor
+        // can find and invalidate this connection when the bound server fails
+        if (xaConnection.getStatementService() instanceof MultinodeStatementService) {
+            MultinodeStatementService multinodeService = (MultinodeStatementService) xaConnection.getStatementService();
+            MultinodeConnectionManager connectionManager = multinodeService.getConnectionManager();
+            if (connectionManager != null && boundServerAddress != null) {
+                // Find the ServerEndpoint for the bound server
+                ServerEndpoint boundEndpoint = findServerEndpoint(connectionManager, boundServerAddress);
+                if (boundEndpoint != null) {
+                    connectionManager.getConnectionTracker().register(this, boundEndpoint);
+                    log.debug("XALogicalConnection registered with ConnectionTracker for server: {}", boundServerAddress);
+                } else {
+                    log.warn("Could not find ServerEndpoint for bound server: {}", boundServerAddress);
+                }
+            }
+        }
+        
         log.debug("Created logical connection using XA session: {}", sessionInfo.getSessionUUID());
+    }
+    
+    /**
+     * Find the ServerEndpoint matching the bound server address.
+     */
+    private ServerEndpoint findServerEndpoint(MultinodeConnectionManager connectionManager, String serverAddress) {
+        try {
+            log.debug("Finding server endpoint for address: {}", serverAddress);
+            ServerEndpoint serverEndpoint = connectionManager.getServerEndpoints().stream().filter(se ->
+                se.getAddress().equalsIgnoreCase(serverAddress)
+            ).findFirst().orElse(null);
+            log.debug("Server endpoint for address {} found {}", serverAddress, serverEndpoint != null ? "successfully" : "not found");
+            return serverEndpoint;
+        } catch (Exception e) {
+            log.warn("Failed to find server endpoint for {}: {}", serverAddress, e.getMessage());
+            return null;
+        }
     }
 
     @Override

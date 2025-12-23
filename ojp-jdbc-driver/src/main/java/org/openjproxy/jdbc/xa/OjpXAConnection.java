@@ -182,21 +182,8 @@ public class OjpXAConnection implements XAConnection, ServerHealthListener {
         log.debug("Creating logical connection for session: {}", session.getSessionUUID());
         
         // Create a new logical connection that uses the same XA session on the server
-        logicalConnection = new OjpXALogicalConnection(this, session, url);
-        
-        // Register with ConnectionTracker if using multinode
-        if (statementService instanceof MultinodeStatementService) {
-            MultinodeStatementService multinodeService = (MultinodeStatementService) statementService;
-            MultinodeConnectionManager connectionManager = multinodeService.getConnectionManager();
-            if (connectionManager != null && boundServerAddress != null) {
-                // Find the ServerEndpoint for the bound server
-                ServerEndpoint boundEndpoint = findServerEndpoint(connectionManager, boundServerAddress);
-                if (boundEndpoint != null) {
-                    connectionManager.getConnectionTracker().register(logicalConnection, boundEndpoint);
-                    log.debug("Registered connection with tracker for server: {}", boundServerAddress);
-                }
-            }
-        }
+        // The logical connection will register itself with ConnectionTracker in its constructor
+        logicalConnection = new OjpXALogicalConnection(this, session, url, boundServerAddress);
         
         return logicalConnection;
     }
