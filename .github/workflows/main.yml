@@ -1135,10 +1135,39 @@ jobs:
         run: |
           echo "Killing OJP Server 1..."
           if [ -f /tmp/ojp-server-xa-1.pid ]; then
-            kill $(cat /tmp/ojp-server-xa-1.pid) || true
-            echo "OJP Server 1 killed"
+            SERVER_PID=$(cat /tmp/ojp-server-xa-1.pid)
+            kill $SERVER_PID || true
+            
+            # Wait for process to fully terminate (max 30s)
+            echo "Waiting for server process to terminate..."
+            for i in {1..30}; do
+              if ! kill -0 $SERVER_PID 2>/dev/null; then
+                echo "Server process terminated after ${i}s"
+                break
+              fi
+              sleep 1
+            done
+            
+            # Force kill if still alive
+            if kill -0 $SERVER_PID 2>/dev/null; then
+              echo "Force killing server process..."
+              kill -9 $SERVER_PID || true
+              sleep 2
+            fi
+            
+            # Wait for Prometheus port 9161 to be released
+            echo "Waiting for Prometheus port 9161 to be released..."
+            for i in {1..30}; do
+              if ! netstat -tuln | grep -q ':9161 '; then
+                echo "Port 9161 is now free after ${i}s"
+                break
+              fi
+              sleep 1
+            done
+            
+            echo "OJP Server 1 killed and ports released"
           fi
-          sleep 10
+          sleep 5
 
       # Verify XA failover: Connections should still be active on server 2
       # Placeholder check: < 1000 connections (will be refined with XA connection pool)
@@ -1179,10 +1208,29 @@ jobs:
       - name: Restart OJP Server 1
         run: |
           echo "Restarting OJP Server 1..."
+          
+          # Double-check ports are free before restarting
+          echo "Verifying ports 10591 and 9161 are available..."
+          if netstat -tuln | grep -q ':10591 '; then
+            echo "Warning: Port 10591 still in use, waiting..."
+            sleep 5
+          fi
+          if netstat -tuln | grep -q ':9161 '; then
+            echo "Warning: Port 9161 still in use, waiting..."
+            sleep 5
+          fi
+          
+          # Start server
           nohup java -Dojp.server.port=10591 -Dojp.prometheus.port=9161 -jar ojp-server/target/ojp-server-0.3.2-snapshot-shaded.jar > /tmp/ojp-server-xa-1-restart.log 2>&1 &
           echo $! > /tmp/ojp-server-xa-1-restart.pid
           echo "OJP Server 1 restarted with PID $(cat /tmp/ojp-server-xa-1-restart.pid)"
-          sleep 10
+          
+          # Wait for server to fully start
+          sleep 15
+          
+          # Verify server is listening
+          echo "Verifying server is listening on port 10591..."
+          netstat -tuln | grep ':10591' || echo "Warning: Server might not be listening yet"
 
       # Verify XA recovery: Connections should be distributed across both servers again
       # Placeholder check: < 1000 connections (will be refined with XA connection pool)
@@ -1224,10 +1272,39 @@ jobs:
         run: |
           echo "Killing OJP Server 2..."
           if [ -f /tmp/ojp-server-xa-2.pid ]; then
-            kill $(cat /tmp/ojp-server-xa-2.pid) || true
-            echo "OJP Server 2 killed"
+            SERVER_PID=$(cat /tmp/ojp-server-xa-2.pid)
+            kill $SERVER_PID || true
+            
+            # Wait for process to fully terminate (max 30s)
+            echo "Waiting for server process to terminate..."
+            for i in {1..30}; do
+              if ! kill -0 $SERVER_PID 2>/dev/null; then
+                echo "Server process terminated after ${i}s"
+                break
+              fi
+              sleep 1
+            done
+            
+            # Force kill if still alive
+            if kill -0 $SERVER_PID 2>/dev/null; then
+              echo "Force killing server process..."
+              kill -9 $SERVER_PID || true
+              sleep 2
+            fi
+            
+            # Wait for Prometheus port 9162 to be released
+            echo "Waiting for Prometheus port 9162 to be released..."
+            for i in {1..30}; do
+              if ! netstat -tuln | grep -q ':9162 '; then
+                echo "Port 9162 is now free after ${i}s"
+                break
+              fi
+              sleep 1
+            done
+            
+            echo "OJP Server 2 killed and ports released"
           fi
-          sleep 10
+          sleep 5
 
       # Verify XA failover: Connections should migrate to server 1
       # Placeholder check: < 1000 connections (will be refined with XA connection pool)
@@ -1268,10 +1345,29 @@ jobs:
       - name: Restart OJP Server 2
         run: |
           echo "Restarting OJP Server 2..."
+          
+          # Double-check ports are free before restarting
+          echo "Verifying ports 10592 and 9162 are available..."
+          if netstat -tuln | grep -q ':10592 '; then
+            echo "Warning: Port 10592 still in use, waiting..."
+            sleep 5
+          fi
+          if netstat -tuln | grep -q ':9162 '; then
+            echo "Warning: Port 9162 still in use, waiting..."
+            sleep 5
+          fi
+          
+          # Start server
           nohup java -Dojp.server.port=10592 -Dojp.prometheus.port=9162 -jar ojp-server/target/ojp-server-0.3.2-snapshot-shaded.jar > /tmp/ojp-server-xa-2-restart.log 2>&1 &
           echo $! > /tmp/ojp-server-xa-2-restart.pid
           echo "OJP Server 2 restarted with PID $(cat /tmp/ojp-server-xa-2-restart.pid)"
-          sleep 10
+          
+          # Wait for server to fully start
+          sleep 15
+          
+          # Verify server is listening
+          echo "Verifying server is listening on port 10592..."
+          netstat -tuln | grep ':10592' || echo "Warning: Server might not be listening yet"
 
       # Final XA verification: Both servers should be active
       # Placeholder check: < 1000 connections (will be refined with XA connection pool)
