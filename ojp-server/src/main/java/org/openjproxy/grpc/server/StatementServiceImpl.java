@@ -1905,6 +1905,9 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
         log.debug("xaStart: session={}, xid={}, flags={}", 
                 request.getSession().getSessionUUID(), request.getXid(), request.getFlags());
         
+        // Process cluster health changes before XA operation
+        processClusterHealth(request.getSession());
+        
         Session session = null;
         
         try {
@@ -2055,6 +2058,9 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
         log.debug("xaPrepare: session={}, xid={}", 
                 request.getSession().getSessionUUID(), request.getXid());
         
+        // Process cluster health changes before XA operation
+        processClusterHealth(request.getSession());
+        
         try {
             Session session = sessionManager.getSession(request.getSession());
             if (session == null || !session.isXA()) {
@@ -2101,6 +2107,9 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
     public void xaCommit(com.openjproxy.grpc.XaCommitRequest request, StreamObserver<com.openjproxy.grpc.XaResponse> responseObserver) {
         log.debug("xaCommit: session={}, xid={}, onePhase={}", 
                 request.getSession().getSessionUUID(), request.getXid(), request.getOnePhase());
+        
+        // Process cluster health changes before XA operation
+        processClusterHealth(request.getSession());
         
         try {
             Session session = sessionManager.getSession(request.getSession());
