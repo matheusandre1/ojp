@@ -216,14 +216,15 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
      */
     private void processClusterHealth(SessionInfo sessionInfo) {
         if (sessionInfo == null) {
+            log.debug("[XA-REBALANCE-DEBUG] processClusterHealth: sessionInfo is null");
             return;
         }
         
         String clusterHealth = sessionInfo.getClusterHealth();
         String connHash = sessionInfo.getConnHash();
         
-        log.debug("processClusterHealth called: connHash={}, clusterHealth={}, isXA={}", 
-                connHash, clusterHealth, sessionInfo.getIsXA());
+        log.info("[XA-REBALANCE-DEBUG] processClusterHealth called: connHash={}, clusterHealth='{}', isXA={}, hasXARegistry={}", 
+                connHash, clusterHealth, sessionInfo.getIsXA(), xaRegistries.containsKey(connHash));
         
         if (clusterHealth != null && !clusterHealth.isEmpty() && 
             connHash != null && !connHash.isEmpty()) {
@@ -231,13 +232,13 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
             // Check if cluster health has changed
             boolean healthChanged = clusterHealthTracker.hasHealthChanged(connHash, clusterHealth);
             
-            log.debug("Cluster health check for {}: changed={}, current health={}", 
-                    connHash, healthChanged, clusterHealth);
+            log.info("[XA-REBALANCE-DEBUG] Cluster health check for {}: changed={}, current health='{}', isXA={}", 
+                    connHash, healthChanged, clusterHealth, sessionInfo.getIsXA());
             
             if (healthChanged) {
                 int healthyServerCount = clusterHealthTracker.countHealthyServers(clusterHealth);
-                log.info("Cluster health changed for {}, healthy servers: {}, triggering pool rebalancing", 
-                        connHash, healthyServerCount);
+                log.info("[XA-REBALANCE-DEBUG] Cluster health changed for {}, healthy servers: {}, triggering pool rebalancing, isXA={}", 
+                        connHash, healthyServerCount, sessionInfo.getIsXA());
                 
                 // Update the pool coordinator with new healthy server count
                 ConnectionPoolConfigurer.getPoolCoordinator().updateHealthyServers(connHash, healthyServerCount);
@@ -245,12 +246,16 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
                 // Apply pool size changes to non-XA HikariDataSource if present
                 DataSource ds = datasourceMap.get(connHash);
                 if (ds instanceof HikariDataSource) {
+                    log.info("[XA-REBALANCE-DEBUG] Applying size changes to HikariDataSource for {}", connHash);
                     ConnectionPoolConfigurer.applyPoolSizeChanges(connHash, (HikariDataSource) ds);
+                } else {
+                    log.info("[XA-REBALANCE-DEBUG] No HikariDataSource found for {}", connHash);
                 }
                 
                 // Apply pool size changes to XA registry if present
                 XATransactionRegistry xaRegistry = xaRegistries.get(connHash);
                 if (xaRegistry != null) {
+                    log.info("[XA-REBALANCE-DEBUG] Found XA registry for {}, resizing", connHash);
                     MultinodePoolCoordinator.PoolAllocation allocation = 
                             ConnectionPoolConfigurer.getPoolCoordinator().getPoolAllocation(connHash);
                     
@@ -258,13 +263,23 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
                         int newMaxPoolSize = allocation.getCurrentMaxPoolSize();
                         int newMinIdle = allocation.getCurrentMinIdle();
                         
-                        log.info("Resizing XA backend pool for {}: maxPoolSize={}, minIdle={}", 
+                        log.info("[XA-REBALANCE-DEBUG] Resizing XA backend pool for {}: maxPoolSize={}, minIdle={}", 
                                 connHash, newMaxPoolSize, newMinIdle);
                         
                         xaRegistry.resizeBackendPool(newMaxPoolSize, newMinIdle);
+                    } else {
+                        log.warn("[XA-REBALANCE-DEBUG] No pool allocation found for {}", connHash);
                     }
+                } else {
+                    log.info("[XA-REBALANCE-DEBUG] No XA registry found for {}", connHash);
                 }
+            } else {
+                log.debug("[XA-REBALANCE-DEBUG] Cluster health unchanged for {}", connHash);
             }
+        } else {
+            log.info("[XA-REBALANCE-DEBUG] Skipping cluster health processing: clusterHealth={}, connHash={}", 
+                    clusterHealth != null && !clusterHealth.isEmpty() ? "present" : "empty", 
+                    connHash != null && !connHash.isEmpty() ? "present" : "empty");
         }
     }
 

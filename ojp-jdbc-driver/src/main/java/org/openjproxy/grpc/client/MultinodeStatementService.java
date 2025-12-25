@@ -154,6 +154,9 @@ public class MultinodeStatementService implements StatementService {
         
         String clusterHealth = connectionManager.generateClusterHealth();
         
+        log.debug("[XA-REBALANCE-DEBUG] withClusterHealth called: connHash={}, isXA={}, original clusterHealth={}, new clusterHealth={}", 
+                sessionInfo.getConnHash(), sessionInfo.getIsXA(), sessionInfo.getClusterHealth(), clusterHealth);
+        
         return SessionInfo.newBuilder(sessionInfo)
                 .setClusterHealth(clusterHealth)
                 .build();
