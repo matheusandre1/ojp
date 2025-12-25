@@ -4,8 +4,6 @@ import com.google.protobuf.ByteString;
 import com.openjproxy.grpc.*;
 import io.grpc.StatusRuntimeException;
 import lombok.extern.slf4j.Slf4j;
-import org.openjproxy.grpc.client.MultinodeConnectionManager;
-import org.openjproxy.grpc.client.MultinodeStatementService;
 import org.openjproxy.grpc.client.StatementService;
 
 import javax.transaction.xa.XAException;
@@ -43,11 +41,9 @@ public class OjpXAResource implements XAResource {
         
         while (attempt < maxRetries) {
             try {
-                // Update SessionInfo with current cluster health if multinode
-                SessionInfo currentSessionInfo = getSessionInfoWithClusterHealth();
-                
+                // MultinodeStatementService will automatically add cluster health via withClusterHealth()
                 XaStartRequest request = XaStartRequest.newBuilder()
-                        .setSession(currentSessionInfo)
+                        .setSession(sessionInfo)
                         .setXid(toXidProto(xid))
                         .setFlags(flags)
                         .build();
@@ -193,11 +189,9 @@ public class OjpXAResource implements XAResource {
     public int prepare(Xid xid) throws XAException {
         log.debug("prepare: xid={}", xid);
         try {
-            // Update SessionInfo with current cluster health if multinode
-            SessionInfo currentSessionInfo = getSessionInfoWithClusterHealth();
-            
+            // MultinodeStatementService will automatically add cluster health via withClusterHealth()
             XaPrepareRequest request = XaPrepareRequest.newBuilder()
-                    .setSession(currentSessionInfo)
+                    .setSession(sessionInfo)
                     .setXid(toXidProto(xid))
                     .build();
             XaPrepareResponse response = statementService.xaPrepare(request);
@@ -214,11 +208,9 @@ public class OjpXAResource implements XAResource {
     public void commit(Xid xid, boolean onePhase) throws XAException {
         log.debug("commit: xid={}, onePhase={}", xid, onePhase);
         try {
-            // Update SessionInfo with current cluster health if multinode
-            SessionInfo currentSessionInfo = getSessionInfoWithClusterHealth();
-            
+            // MultinodeStatementService will automatically add cluster health via withClusterHealth()
             XaCommitRequest request = XaCommitRequest.newBuilder()
-                    .setSession(currentSessionInfo)
+                    .setSession(sessionInfo)
                     .setXid(toXidProto(xid))
                     .setOnePhase(onePhase)
                     .build();
@@ -355,44 +347,6 @@ public class OjpXAResource implements XAResource {
             xae.initCause(e);
             throw xae;
         }
-    }
-
-    /**
-     * Gets the SessionInfo with current cluster health populated if using multinode.
-     * For non-multinode connections, returns the original sessionInfo.
-     */
-    private SessionInfo getSessionInfoWithClusterHealth() {
-        if (statementService instanceof MultinodeStatementService) {
-            MultinodeStatementService multinodeService = (MultinodeStatementService) statementService;
-            MultinodeConnectionManager connectionManager = multinodeService.getConnectionManager();
-            String clusterHealth = connectionManager.generateClusterHealth();
-            
-            System.out.println("OjpXAResource: Generated cluster health: " + clusterHealth);
-            System.out.println("OjpXAResource: Original SessionInfo clusterHealth: " + sessionInfo.getClusterHealth());
-            
-            // Build new SessionInfo with all fields from original plus cluster health
-            SessionInfo.Builder builder = SessionInfo.newBuilder()
-                    .setConnHash(sessionInfo.getConnHash())
-                    .setClientUUID(sessionInfo.getClientUUID())
-                    .setSessionUUID(sessionInfo.getSessionUUID())
-                    .setSessionStatus(sessionInfo.getSessionStatus())
-                    .setIsXA(sessionInfo.getIsXA())
-                    .setClusterHealth(clusterHealth);
-            
-            // Copy optional fields if present
-            if (sessionInfo.hasTransactionInfo()) {
-                builder.setTransactionInfo(sessionInfo.getTransactionInfo());
-            }
-            if (!sessionInfo.getTargetServer().isEmpty()) {
-                builder.setTargetServer(sessionInfo.getTargetServer());
-            }
-            
-            SessionInfo newSessionInfo = builder.build();
-            System.out.println("OjpXAResource: New SessionInfo clusterHealth: " + newSessionInfo.getClusterHealth());
-            return newSessionInfo;
-        }
-        System.out.println("OjpXAResource: Not multinode service, returning original sessionInfo");
-        return sessionInfo;
     }
 
     /**
