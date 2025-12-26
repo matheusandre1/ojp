@@ -619,9 +619,9 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
                 // Use calculated pool sizes (with multinode coordination if applicable)
                 xaPoolConfig.put("xa.maxPoolSize", String.valueOf(maxPoolSize));
                 xaPoolConfig.put("xa.minIdle", String.valueOf(minIdle));
-                xaPoolConfig.put("xa.connectionTimeoutMs", String.valueOf(xaConfig.getConnectionTimeout()));
-                xaPoolConfig.put("xa.idleTimeoutMs", String.valueOf(xaConfig.getIdleTimeout()));
-                xaPoolConfig.put("xa.maxLifetimeMs", String.valueOf(xaConfig.getMaxLifetime()));
+                xaPoolConfig.put("xa.maxWaitMillis", String.valueOf(xaConfig.getConnectionTimeout()));
+                xaPoolConfig.put("xa.idleTimeoutMinutes", String.valueOf(xaConfig.getIdleTimeout() / 60000));
+                xaPoolConfig.put("xa.maxLifetimeMinutes", String.valueOf(xaConfig.getMaxLifetime() / 60000));
                 
                 // Create pooled XA DataSource via provider
                 Object pooledXADataSource = xaPoolProvider.createXADataSource(xaPoolConfig);
