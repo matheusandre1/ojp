@@ -90,7 +90,8 @@ public class CommonsPool2XADataSource implements XADataSource {
      * </p>
      *
      * @return a backend session from the pool
-     * @throws Exception if session cannot be borrowed
+     * @throws SQLException if pool is exhausted and timeout expires
+     * @throws Exception if session cannot be borrowed for other reasons
      */
     public XABackendSession borrowSession() throws Exception {
         log.debug("Borrowing session from pool");
@@ -102,6 +103,17 @@ public class CommonsPool2XADataSource implements XADataSource {
                     pool.getNumActive(), pool.getNumIdle());
             
             return session;
+            
+        } catch (java.util.NoSuchElementException e) {
+            // Pool exhausted and maxWait timeout expired
+            long maxWaitMs = getLongConfig(config, "xa.connectionTimeoutMs", 30000L);
+            String errorMsg = String.format(
+                "XA connection pool exhausted: maxTotal=%d, active=%d, idle=%d, timeout=%dms. " +
+                "Increase pool size or reduce concurrent XA transactions.",
+                pool.getMaxTotal(), pool.getNumActive(), pool.getNumIdle(), maxWaitMs);
+            
+            log.error(errorMsg);
+            throw new SQLException(errorMsg, "08001", e);
             
         } catch (Exception e) {
             log.error("Failed to borrow session from pool", e);
@@ -337,9 +349,11 @@ public class CommonsPool2XADataSource implements XADataSource {
         poolConfig.setMinEvictableIdleDuration(Duration.ofMillis(idleTimeoutMs));
         poolConfig.setSoftMinEvictableIdleDuration(Duration.ofMillis(idleTimeoutMs / 2));
         
-        // Lifetime
-        long maxLifetimeMs = getLongConfig(config, "xa.maxLifetimeMs", 1800000L);
-        poolConfig.setMaxWait(Duration.ofMillis(maxLifetimeMs));
+        // Lifetime enforcement via eviction
+        // Note: Commons Pool 2 doesn't have a direct "maxLifetime" setting.
+        // Objects are evicted based on idle time and validation failures.
+        // The maxLifetimeMs config is preserved for future use but not applied here
+        // to avoid overwriting the maxWait timeout setting above.
         
         // Fairness
         poolConfig.setFairness(true);
