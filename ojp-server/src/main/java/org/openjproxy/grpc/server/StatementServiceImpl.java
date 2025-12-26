@@ -275,8 +275,9 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
                     } else {
                         log.warn("[XA-REBALANCE-DEBUG] No pool allocation found for {}", connHash);
                     }
-                } else {
-                    log.info("[XA-REBALANCE-DEBUG] No XA registry found for {}", connHash);
+                } else if (sessionInfo.getIsXA()) {
+                    // Only log missing XA registry for actual XA connections
+                    log.info("[XA-REBALANCE-DEBUG] No XA registry found for XA connection {}", connHash);
                 }
             } else {
                 log.debug("[XA-REBALANCE-DEBUG] Cluster health unchanged for {}", connHash);
