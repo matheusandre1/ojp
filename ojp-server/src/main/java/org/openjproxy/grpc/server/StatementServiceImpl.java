@@ -625,6 +625,8 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
                 xaPoolConfig.put("xa.maxLifetimeMs", String.valueOf(xaConfig.getMaxLifetime()));
                 
                 // Create pooled XA DataSource via provider
+                log.info("[XA-POOL-CREATE] Creating XA pool for connHash={}, serverEndpointsHash={}, config=(max={}, min={})",
+                        connHash, currentEndpointsHash, maxPoolSize, minIdle);
                 Object pooledXADataSource = xaPoolProvider.createXADataSource(xaPoolConfig);
                 
                 // Create XA Transaction Registry with serverEndpoints hash and pool sizes for validation
@@ -634,18 +636,20 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
                 // Create slow query segregation manager for XA
                 createSlowQuerySegregationManagerForDatasource(connHash, actualMaxXaTransactions, true, xaStartTimeoutMillis);
                 
-                log.info("Created XA pool for connHash {} - maxPoolSize: {}, minIdle: {}, multinode: {}", 
-                        connHash, maxPoolSize, minIdle, serverEndpoints != null && !serverEndpoints.isEmpty());
+                log.info("[XA-POOL-CREATE] Successfully created XA pool for connHash={} - maxPoolSize={}, minIdle={}, multinode={}, poolObject={}", 
+                        connHash, maxPoolSize, minIdle, serverEndpoints != null && !serverEndpoints.isEmpty(), 
+                        pooledXADataSource.getClass().getSimpleName());
                 
             } catch (Exception e) {
-                log.error("Failed to create XA Pool Provider registry for connection hash {}: {}", 
-                        connHash, e.getMessage(), e);
+                log.error("[XA-POOL-CREATE] FAILED to create XA Pool Provider registry for connHash={}, serverEndpointsHash={}: {}", 
+                        connHash, currentEndpointsHash, e.getMessage(), e);
                 SQLException sqlException = new SQLException("Failed to create XA pool: " + e.getMessage(), e);
                 sendSQLExceptionMetadata(sqlException, responseObserver);
                 return;
             }
         } else {
-            log.info("Reusing EXISTING XA registry for connHash: {} (pool already created with cached sizes)", connHash);
+            log.info("[XA-POOL-REUSE] Reusing EXISTING XA registry for connHash={} (pool already created, cached sizes: max={}, min={})",
+                    connHash, registry.getMaxPoolSize(), registry.getMinIdle());
         }
         
         this.sessionManager.registerClientUUID(connHash, connectionDetails.getClientUUID());

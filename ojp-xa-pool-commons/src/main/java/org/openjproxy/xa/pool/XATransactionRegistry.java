@@ -122,23 +122,37 @@ public class XATransactionRegistry {
             org.openjproxy.xa.pool.commons.CommonsPool2XADataSource commonsPool = 
                     (org.openjproxy.xa.pool.commons.CommonsPool2XADataSource) poolDataSource;
             
+            int currentMaxTotal = commonsPool.getMaxTotal();
+            int currentMinIdle = commonsPool.getMinIdle();
+            
+            log.info("[XA-POOL-RESIZE] resizeBackendPool called: old=(max={}, min={}), new=(max={}, min={}), " +
+                    "currentPoolState=(active={}, idle={})",
+                    currentMaxTotal, currentMinIdle, newMaxPoolSize, newMinIdle,
+                    commonsPool.getNumActive(), commonsPool.getNumIdle());
+            
+            // Log diagnostics BEFORE resize
+            commonsPool.logPoolDiagnostics("BEFORE resize");
+            
             // Determine resize direction
-            boolean isDecreasing = (newMaxPoolSize < commonsPool.getMaxTotal()) || 
-                                    (newMinIdle < commonsPool.getMinIdle());
+            boolean isDecreasing = (newMaxPoolSize < currentMaxTotal) || (newMinIdle < currentMinIdle);
             
             if (isDecreasing) {
                 // When decreasing: set minIdle first, then maxTotal to avoid validation errors
                 commonsPool.setMinIdle(newMinIdle);
                 commonsPool.setMaxTotal(newMaxPoolSize);
-                log.info("XA backend pool resized (decreased): maxTotal={}, minIdle={}", 
+                log.info("[XA-POOL-RESIZE] XA backend pool resized (DECREASED): maxTotal={}, minIdle={}", 
                         newMaxPoolSize, newMinIdle);
             } else {
                 // When increasing: set maxTotal first, then minIdle
                 commonsPool.setMaxTotal(newMaxPoolSize);
                 commonsPool.setMinIdle(newMinIdle);
-                log.info("XA backend pool resized (increased): maxTotal={}, minIdle={}", 
+                log.info("[XA-POOL-RESIZE] XA backend pool resized (INCREASED): maxTotal={}, minIdle={}", 
                         newMaxPoolSize, newMinIdle);
             }
+            
+            // Log diagnostics AFTER resize
+            commonsPool.logPoolDiagnostics("AFTER resize");
+            
         } else {
             log.warn("Cannot resize XA backend pool: poolDataSource is not CommonsPool2XADataSource");
         }
