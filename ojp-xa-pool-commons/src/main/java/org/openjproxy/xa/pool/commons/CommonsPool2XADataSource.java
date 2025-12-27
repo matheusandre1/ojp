@@ -230,6 +230,10 @@ public class CommonsPool2XADataSource implements XADataSource {
     public void setMaxTotal(int maxTotal) {
         log.info("Resizing XA pool: setMaxTotal from {} to {}", pool.getMaxTotal(), maxTotal);
         pool.setMaxTotal(maxTotal);
+        // CRITICAL: Also update maxIdle to allow idle connections up to maxTotal
+        // Without this, addObject() becomes a no-op once numIdle >= old maxIdle
+        pool.setMaxIdle(maxTotal);
+        log.debug("[XA-POOL-RESIZE] Updated maxIdle to {} (same as maxTotal)", maxTotal);
     }
     
     /**
@@ -248,56 +252,52 @@ public class CommonsPool2XADataSource implements XADataSource {
      * @param minIdle the new minimum idle sessions
      */
     public void setMinIdle(int minIdle) {
-        log.info("Resizing XA pool: setMinIdle from {} to {}", pool.getMinIdle(), minIdle);
+        int oldMinIdle = pool.getMinIdle();
+        log.info("Resizing XA pool: setMinIdle from {} to {}", oldMinIdle, minIdle);
+        
+        // CRITICAL: Update maxIdle to allow idle connections up to maxTotal
+        // Without this, preparePool() cannot create idle connections beyond old maxIdle
+        int currentMaxTotal = pool.getMaxTotal();
+        pool.setMaxIdle(currentMaxTotal);
+        log.debug("[XA-POOL-RESIZE] Updated maxIdle to {} (same as maxTotal)", currentMaxTotal);
+        
+        // Set the new minIdle target
         pool.setMinIdle(minIdle);
         
-        // After increasing minIdle, ensure idle connections are created immediately
-        // Commons Pool 2 doesn't automatically create idle connections when you increase minIdle
+        // Use preparePool() instead of manual addObject() loop
+        // preparePool() is the recommended way to ensure minIdle idle instances exist
+        // It handles the logic of creating connections up to minIdle while respecting maxTotal
         int currentIdle = pool.getNumIdle();
         int currentActive = pool.getNumActive();
         int needed = minIdle - currentIdle;
         
         if (needed > 0) {
-            log.info("[XA-POOL-RESIZE] Creating {} idle connections to reach minIdle={} (current: idle={}, active={})", 
-                    needed, minIdle, currentIdle, currentActive);
+            log.info("[XA-POOL-RESIZE] Preparing pool to reach minIdle={} (current: idle={}, active={}, needed={})", 
+                    minIdle, currentIdle, currentActive, needed);
             
-            int successCount = 0;
-            int failureCount = 0;
-            Exception lastException = null;
-            
-            // Add idle objects to reach minIdle, tracking success/failure
-            for (int i = 0; i < needed; i++) {
-                try {
-                    pool.addObject();
-                    successCount++;
-                    log.debug("[XA-POOL-RESIZE] Successfully created idle connection {}/{}", i + 1, needed);
-                } catch (Exception e) {
-                    failureCount++;
-                    lastException = e;
-                    log.error("[XA-POOL-RESIZE] Failed to create idle connection {}/{}: {} - {}", 
-                            i + 1, needed, e.getClass().getSimpleName(), e.getMessage());
+            try {
+                // preparePool() attempts to ensure minIdle idle instances exist
+                pool.preparePool();
+                
+                int finalIdle = pool.getNumIdle();
+                int finalActive = pool.getNumActive();
+                int created = finalIdle - currentIdle;
+                
+                log.info("[XA-POOL-RESIZE] Pool preparation complete: created={}, pool state: idle={}, active={}, maxTotal={}", 
+                        created, finalIdle, finalActive, pool.getMaxTotal());
+                
+                // Warn if we didn't reach the target
+                if (finalIdle < minIdle) {
+                    log.warn("[XA-POOL-RESIZE] WARNING: Pool has {} idle connections but minIdle target is {}. " +
+                            "Pool may be under load or backend unavailable.", finalIdle, minIdle);
                 }
+                
+            } catch (Exception e) {
+                log.error("[XA-POOL-RESIZE] CRITICAL: preparePool() failed during pool resize", e);
+                throw new RuntimeException("Failed to prepare pool during resize. Pool expansion failed.", e);
             }
-            
-            int finalIdle = pool.getNumIdle();
-            int finalActive = pool.getNumActive();
-            
-            log.info("[XA-POOL-RESIZE] Idle connection creation complete: success={}, failures={}, pool state: idle={}, active={}, maxTotal={}", 
-                    successCount, failureCount, finalIdle, finalActive, pool.getMaxTotal());
-            
-            // If NO connections were created successfully, this is a critical failure
-            if (successCount == 0 && failureCount > 0) {
-                log.error("[XA-POOL-RESIZE] CRITICAL: Failed to create ANY idle connections during pool resize. Last error: {}", 
-                        lastException != null ? lastException.getMessage() : "Unknown");
-                throw new RuntimeException("Failed to create idle connections during pool resize. Pool expansion failed.", lastException);
-            }
-            
-            // If only some connections failed, log a warning but continue
-            if (failureCount > 0) {
-                log.warn("[XA-POOL-RESIZE] WARNING: Only {} out of {} requested idle connections were created. " +
-                        "Pool may not have enough capacity. Last error: {}", 
-                        successCount, needed, lastException != null ? lastException.getMessage() : "Unknown");
-            }
+        } else {
+            log.debug("[XA-POOL-RESIZE] No idle connections needed (current idle={} >= minIdle={})", currentIdle, minIdle);
         }
     }
     
