@@ -20,6 +20,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -58,6 +61,7 @@ public class MultinodeConnectionManager {
     private final SessionTracker sessionTracker; // New unified tracker
     private final ConnectionRedistributor connectionRedistributor;
     private XAConnectionRedistributor xaConnectionRedistributor;
+    private final ScheduledExecutorService healthCheckScheduler;
     
     public MultinodeConnectionManager(List<ServerEndpoint> serverEndpoints) {
         this(serverEndpoints, CommonConstants.DEFAULT_MULTINODE_RETRY_ATTEMPTS, 
@@ -100,6 +104,33 @@ public class MultinodeConnectionManager {
         
         // Initialize channels and stubs for all servers
         initializeConnections();
+        
+        // Start periodic health checker if redistribution is enabled
+        if (this.healthCheckConfig.isRedistributionEnabled()) {
+            this.healthCheckScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "ojp-health-checker");
+                t.setDaemon(true); // Don't prevent JVM shutdown
+                return t;
+            });
+            
+            long intervalMs = this.healthCheckConfig.getHealthCheckIntervalMs();
+            this.healthCheckScheduler.scheduleAtFixedRate(
+                () -> {
+                    try {
+                        performHealthCheck();
+                    } catch (Exception e) {
+                        log.warn("Periodic health check failed: {}", e.getMessage());
+                    }
+                },
+                intervalMs, // Initial delay
+                intervalMs, // Period
+                TimeUnit.MILLISECONDS
+            );
+            log.info("Started periodic health checker with interval {}ms", intervalMs);
+        } else {
+            this.healthCheckScheduler = null;
+            log.info("Periodic health checker disabled (redistribution not enabled)");
+        }
         
         log.info("MultinodeConnectionManager initialized with {} servers: {}, health check config: {}", 
                 serverEndpoints.size(), serverEndpoints, this.healthCheckConfig);
@@ -998,6 +1029,19 @@ public class MultinodeConnectionManager {
      */
     public void shutdown() {
         log.info("Shutting down MultinodeConnectionManager");
+        
+        // Shutdown health checker scheduler
+        if (healthCheckScheduler != null) {
+            healthCheckScheduler.shutdown();
+            try {
+                if (!healthCheckScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                    healthCheckScheduler.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                healthCheckScheduler.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
         
         for (ChannelAndStub channelAndStub : channelMap.values()) {
             try {
