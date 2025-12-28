@@ -13,6 +13,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 /**
  * XADataSource wrapper that pools {@link XABackendSession} instances using Apache Commons Pool 2.
@@ -247,6 +248,86 @@ public class CommonsPool2XADataSource implements XADataSource {
         
         log.info("[XA-POOL-RESIZE] After setMaxTotal: maxTotal={}, maxIdle={}, minIdle={}, state=(active={}, idle={})",
                 pool.getMaxTotal(), pool.getMaxIdle(), pool.getMinIdle(), pool.getNumActive(), pool.getNumIdle());
+        
+        // If we're downsizing (new maxTotal < old maxTotal), actively destroy excess connections
+        if (maxTotal < oldMaxTotal) {
+            destroyExcessConnections();
+        }
+    }
+    
+    /**
+     * Destroys excess idle connections after a pool downsize operation.
+     * <p>
+     * Apache Commons Pool 2 does NOT automatically destroy excess connections when maxTotal is reduced.
+     * If there are active connections that exceed the new maxTotal when they were borrowed (before downsize),
+     * they remain valid and get added to the idle pool when returned, potentially exceeding maxTotal.
+     * <p>
+     * This method actively clears excess idle connections to bring total connections (active + idle)
+     * back within the maxTotal limit.
+     * <p>
+     * Called after setMaxTotal() completes to enforce the new pool size immediately.
+     */
+    private void destroyExcessConnections() {
+        int maxTotal = pool.getMaxTotal();
+        int currentActive = pool.getNumActive();
+        int currentIdle = pool.getNumIdle();
+        int totalConnections = currentActive + currentIdle;
+        
+        if (totalConnections <= maxTotal) {
+            log.debug("[XA-POOL-CLEANUP] No excess connections to destroy: total={}, maxTotal={}", 
+                    totalConnections, maxTotal);
+            return;
+        }
+        
+        int excessCount = totalConnections - maxTotal;
+        log.info("[XA-POOL-CLEANUP] Destroying {} excess connections: total={} (active={}, idle={}), maxTotal={}",
+                excessCount, totalConnections, currentActive, currentIdle, maxTotal);
+        
+        // Destroy idle connections to reduce total
+        // We can only destroy idle connections immediately; active connections will be destroyed when returned
+        int idleToDestroy = Math.min(excessCount, currentIdle);
+        int destroyed = 0;
+        int failures = 0;
+        
+        for (int i = 0; i < idleToDestroy; i++) {
+            try {
+                // Borrow an idle connection and immediately invalidate it
+                XABackendSession session = pool.borrowObject(Duration.ofMillis(100));
+                pool.invalidateObject(session);
+                destroyed++;
+                
+                log.debug("[XA-POOL-CLEANUP] Destroyed excess idle connection {}/{}", destroyed, idleToDestroy);
+                
+            } catch (NoSuchElementException e) {
+                // No more idle connections available (all borrowed or pool empty)
+                log.debug("[XA-POOL-CLEANUP] No more idle connections to destroy (destroyed {} of {})",
+                        destroyed, idleToDestroy);
+                break;
+                
+            } catch (Exception e) {
+                failures++;
+                log.warn("[XA-POOL-CLEANUP] Failed to destroy excess connection {}/{}: {}", 
+                        i + 1, idleToDestroy, e.getMessage());
+            }
+        }
+        
+        int remainingActive = pool.getNumActive();
+        int remainingIdle = pool.getNumIdle();
+        int remainingTotal = remainingActive + remainingIdle;
+        
+        log.info("[XA-POOL-CLEANUP] Cleanup complete: destroyed={}, failures={}, " +
+                "remaining total={} (active={}, idle={}), maxTotal={}, " +
+                "excess remaining={}", 
+                destroyed, failures, remainingTotal, remainingActive, remainingIdle, maxTotal,
+                Math.max(0, remainingTotal - maxTotal));
+        
+        // If we still have excess, it's because all excess connections are active
+        // They will be destroyed when returned (Apache Commons Pool enforces maxIdle on return)
+        if (remainingTotal > maxTotal) {
+            log.warn("[XA-POOL-CLEANUP] {} connections still exceed maxTotal (all active). " +
+                    "They will be destroyed when returned to pool.", 
+                    remainingTotal - maxTotal);
+        }
     }
     
     /**
