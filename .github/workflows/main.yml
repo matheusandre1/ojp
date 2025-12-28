@@ -1001,7 +1001,7 @@ jobs:
   # Database: PostgreSQL (with XA prepared transactions support)
   # Execution: Only runs AFTER build-test job succeeds (needs: [build-test])
   #
-  # NOTE: Connection count checks expect 30-35 connections (both XA and non-XA pools active).
+  # NOTE: Connection count checks expect 20-46 connections (both XA and non-XA pools active).
   #
   # ===========================================================================
   multinode-xa-test:
