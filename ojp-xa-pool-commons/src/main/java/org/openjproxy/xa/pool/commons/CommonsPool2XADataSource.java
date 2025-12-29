@@ -25,8 +25,8 @@ import java.util.NoSuchElementException;
  * <h3>Configuration:</h3>
  * <p>Configuration is provided via a map with the following keys:</p>
  * <ul>
- *   <li>{@code xa.maxPoolSize} - Maximum pool size (default: 10)</li>
- *   <li>{@code xa.minIdle} - Minimum idle sessions (default: 2)</li>
+ *   <li>{@code xa.maxPoolSize} - Maximum pool size (default: 20)</li>
+ *   <li>{@code xa.minIdle} - Minimum idle sessions (default: 5)</li>
  *   <li>{@code xa.connectionTimeoutMs} - Borrow timeout in ms (default: 30000)</li>
  *   <li>{@code xa.idleTimeoutMs} - Idle eviction timeout in ms (default: 600000)</li>
  *   <li>{@code xa.maxLifetimeMs} - Maximum session lifetime in ms (default: 1800000)</li>
@@ -532,8 +532,8 @@ public class CommonsPool2XADataSource implements XADataSource {
         GenericObjectPoolConfig<XABackendSession> poolConfig = new GenericObjectPoolConfig<>();
         
         // Pool sizing
-        int maxTotal = getIntConfig(config, "xa.maxPoolSize", 10);
-        int minIdle = getIntConfig(config, "xa.minIdle", 2);
+        int maxTotal = getIntConfig(config, "xa.maxPoolSize", 20);
+        int minIdle = getIntConfig(config, "xa.minIdle", 5);
         poolConfig.setMaxTotal(maxTotal);
         poolConfig.setMinIdle(minIdle);
         poolConfig.setMaxIdle(maxTotal); // maxIdle same as maxTotal

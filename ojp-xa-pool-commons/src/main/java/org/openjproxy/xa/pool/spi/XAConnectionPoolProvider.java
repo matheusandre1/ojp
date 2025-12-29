@@ -35,7 +35,7 @@ import java.util.Map;
  *   <li>{@code xa.url} - JDBC URL</li>
  *   <li>{@code xa.username} - Database username</li>
  *   <li>{@code xa.password} - Database password</li>
- *   <li>{@code xa.maxPoolSize} - Maximum pool size (default: 10)</li>
+ *   <li>{@code xa.maxPoolSize} - Maximum pool size (default: 20)</li>
  *   <li>{@code xa.minIdle} - Minimum idle connections (default: 2)</li>
  *   <li>{@code xa.connectionTimeoutMs} - Connection timeout in ms (default: 30000)</li>
  *   <li>{@code xa.idleTimeoutMs} - Idle timeout in ms (default: 600000)</li>

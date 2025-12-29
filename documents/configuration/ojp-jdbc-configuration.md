@@ -136,7 +136,7 @@ When using XA (distributed transaction) connections via `OjpXADataSource`, OJP u
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `ojp.xa.connection.pool.maxTotal` | int | 50 | Maximum XA backend sessions per server |
+| `ojp.xa.connection.pool.maxTotal` | int | 20 | Maximum XA backend sessions per server |
 | `ojp.xa.connection.pool.minIdle` | int | 5 | Minimum idle XA sessions (pre-warmed) |
 | `ojp.xa.connection.pool.connectionTimeout` | long | 20000 | Max wait time (ms) to borrow session (20 seconds) |
 | `ojp.xa.connection.pool.idleTimeout` | long | 600000 | Max idle time (ms) before eviction (10 minutes) |
@@ -156,7 +156,7 @@ When using XA (distributed transaction) connections via `OjpXADataSource`, OJP u
 
 ```properties
 # Default XA backend session pool
-ojp.xa.connection.pool.maxTotal=50
+ojp.xa.connection.pool.maxTotal=20
 ojp.xa.connection.pool.minIdle=5
 ojp.xa.connection.pool.connectionTimeout=20000
 
@@ -208,7 +208,7 @@ ojp.connection.pool.maxLifetime=900000
 ojp.connection.pool.connectionTimeout=15000
 
 # XA backend session pool (server-side)
-ojp.xa.connection.pool.maxTotal=50
+ojp.xa.connection.pool.maxTotal=20
 ojp.xa.connection.pool.minIdle=5
 ojp.xa.connection.pool.connectionTimeout=20000
 ojp.xa.connection.pool.idleTimeout=600000

@@ -66,6 +66,10 @@ public class CommonConstants {
     public static final long DEFAULT_MAX_LIFETIME = 1800000; // 30 minutes  
     public static final long DEFAULT_CONNECTION_TIMEOUT = 10000; // Reduced from 30s to 10s for faster failure
     
+    // XA pool defaults - matching non-XA connection pool defaults for consistency
+    public static final int DEFAULT_XA_MAXIMUM_POOL_SIZE = 20;  // Same as non-XA for consistency
+    public static final int DEFAULT_XA_MINIMUM_IDLE = 5;        // Same as non-XA for consistency
+    
     // XA Transaction settings
     public static final int DEFAULT_MAX_XA_TRANSACTIONS = 50;  // Maximum concurrent XA transactions
     public static final long DEFAULT_XA_START_TIMEOUT_MILLIS = 60000;  // 60 seconds timeout for acquiring XA slot
