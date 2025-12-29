@@ -26,6 +26,7 @@ public class ServerConfigurationTest {
         System.clearProperty("ojp.server.connectionIdleTimeout");
         System.clearProperty("ojp.prometheus.allowedIps");
         System.clearProperty("ojp.server.circuitBreakerTimeout");
+        System.clearProperty("ojp.drivers.path");
     }
 
     @Test
@@ -44,6 +45,7 @@ public class ServerConfigurationTest {
         assertEquals(ServerConfiguration.DEFAULT_PROMETHEUS_ALLOWED_IPS, config.getPrometheusAllowedIps());
         assertEquals(ServerConfiguration.DEFAULT_CIRCUIT_BREAKER_TIMEOUT, config.getCircuitBreakerTimeout());
         assertEquals(ServerConfiguration.DEFAULT_CIRCUIT_BREAKER_THRESHOLD, config.getCircuitBreakerThreshold());
+        assertEquals(ServerConfiguration.DEFAULT_DRIVERS_PATH, config.getDriversPath());
     }
 
     @Test
@@ -147,5 +149,17 @@ public class ServerConfigurationTest {
 
         assertFalse(config.getAllowedIps().isEmpty());
         assertFalse(config.getPrometheusAllowedIps().isEmpty());
+    }
+
+    @Test
+    public void testDriversPathConfiguration() {
+        // Test default value
+        ServerConfiguration config = new ServerConfiguration();
+        assertEquals(ServerConfiguration.DEFAULT_DRIVERS_PATH, config.getDriversPath());
+
+        // Test custom value via system property
+        System.setProperty("ojp.drivers.path", "/custom/path/to/drivers");
+        config = new ServerConfiguration();
+        assertEquals("/custom/path/to/drivers", config.getDriversPath());
     }
 }
