@@ -15,6 +15,7 @@ public class DatasourcePropertiesLoader {
 
     /**
      * Load ojp.properties and extract configuration specific to the given dataSource.
+     * System properties (-D flags) take precedence over properties file values.
      * 
      * @param dataSourceName The datasource name to load properties for
      * @return Properties for the specified datasource, or null if none found
@@ -51,6 +52,31 @@ public class DatasourcePropertiesLoader {
                     key.startsWith("ojp.xa.connection.pool.") || 
                     key.startsWith("ojp.xa.")) {
                     dataSourceProperties.setProperty(key, allProperties.getProperty(key));
+                }
+            }
+        }
+        
+        // Merge system properties - they take precedence over file properties
+        // Check for datasource-specific system properties first
+        Properties systemProps = System.getProperties();
+        for (String key : systemProps.stringPropertyNames()) {
+            if (key.startsWith(poolPrefix) || key.startsWith(xaPoolPrefix) || key.startsWith(xaPrefix)) {
+                // Remove the dataSource prefix and keep the standard property name
+                String standardKey = key.substring(dataSourceName.length() + 1);
+                dataSourceProperties.setProperty(standardKey, systemProps.getProperty(key));
+                foundDataSourceSpecific = true;
+                log.debug("Overriding property from system property: {} = {}", standardKey, systemProps.getProperty(key));
+            }
+        }
+        
+        // For "default" datasource, also check unprefixed system properties
+        if ("default".equals(dataSourceName)) {
+            for (String key : systemProps.stringPropertyNames()) {
+                if (key.startsWith("ojp.connection.pool.") || 
+                    key.startsWith("ojp.xa.connection.pool.") || 
+                    key.startsWith("ojp.xa.")) {
+                    dataSourceProperties.setProperty(key, systemProps.getProperty(key));
+                    log.debug("Overriding property from system property: {} = {}", key, systemProps.getProperty(key));
                 }
             }
         }
