@@ -489,7 +489,7 @@ com.example.xa.MyUniversalXAProvider
 
 ### Database-Specific Optimization Example
 
-You can create optimized providers for specific databases. To ensure your database-specific provider is selected, give it a higher priority than the universal provider:
+You can create optimized providers for specific databases. To ensure your database-specific provider is selected over the universal provider (CommonsPool2XAProvider at priority 100), give it a higher priority:
 
 ```java
 public class OracleUCPXAProvider implements XAConnectionPoolProvider {
@@ -507,8 +507,9 @@ public class OracleUCPXAProvider implements XAConnectionPoolProvider {
 
     @Override
     public boolean supportsDatabase(String jdbcUrl, String driverClassName) {
-        // This method is currently informational
-        // Selection is based on isAvailable() and priority
+        // This method is informational only - not used in provider selection
+        // OJP currently selects based only on isAvailable() and getPriority()
+        // Future versions may use this for smarter provider selection
         return jdbcUrl != null && jdbcUrl.startsWith("jdbc:oracle:");
     }
 
@@ -544,7 +545,7 @@ When multiple providers are available, OJP selects based on:
 1. **Availability**: The provider's `isAvailable()` must return `true`
 2. **Priority**: Higher priority wins (any positive integer value)
 
-**Note**: Both ConnectionPoolProvider and XAConnectionPoolProvider use the same selection mechanism - **higher priority values take precedence**. Built-in providers typically use 0-100, but custom providers can use any value to ensure selection.
+**Note**: Both ConnectionPoolProvider and XAConnectionPoolProvider use the same selection mechanism - **higher priority values take precedence**. Built-in providers typically use 0-100, but custom providers can use any positive integer value to ensure selection (e.g., 150 to override a default provider at 100).
 
 ### Selection Examples
 
