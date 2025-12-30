@@ -523,9 +523,11 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
             
             // Check if XA pooling is enabled
             if (!poolEnabled) {
-                // TODO: Implement unpooled XA mode if needed
-                // For now, log a warning and fall back to pooled mode
-                log.warn("XA unpooled mode requested but not yet implemented for connHash: {}. Falling back to pooled mode.", connHash);
+                log.info("XA unpooled mode enabled for connHash: {}", connHash);
+                
+                // Handle unpooled XA connection
+                handleUnpooledXAConnection(connectionDetails, connHash, responseObserver);
+                return;
             }
             
             try {
@@ -704,6 +706,55 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
             SQLException sqlException = new SQLException("Failed to allocate XA session from pool: " + e.getMessage(), e);
             sendSQLExceptionMetadata(sqlException, responseObserver);
             return;
+        }
+    }
+    
+    /**
+     * Handle unpooled XA connection by creating a direct XADataSource without pooling.
+     * This mode creates XAConnections on demand without any connection pooling.
+     * Used when ojp.xa.connection.pool.enabled=false.
+     */
+    private void handleUnpooledXAConnection(ConnectionDetails connectionDetails, String connHash,
+                                            StreamObserver<SessionInfo> responseObserver) {
+        try {
+            // Parse URL to remove OJP-specific prefix
+            String parsedUrl = UrlParser.parseUrl(connectionDetails.getUrl());
+            
+            // Get XA datasource configuration from client properties
+            Properties clientProperties = ConnectionPoolConfigurer.extractClientProperties(connectionDetails);
+            DataSourceConfigurationManager.XADataSourceConfiguration xaConfig = 
+                    DataSourceConfigurationManager.getXAConfiguration(clientProperties);
+            
+            // Create XADataSource directly using XADataSourceFactory
+            XADataSource xaDataSource = XADataSourceFactory.createXADataSource(
+                    parsedUrl, 
+                    connectionDetails);
+            
+            // Store the unpooled XADataSource for this connection
+            xaDataSourceMap.put(connHash, xaDataSource);
+            
+            log.info("Created unpooled XADataSource for connHash: {}, database: {}", 
+                    connHash, DatabaseUtils.resolveDbName(connectionDetails.getUrl()));
+            
+            // Register client UUID
+            this.sessionManager.registerClientUUID(connHash, connectionDetails.getClientUUID());
+            
+            // Return session info (XAConnection will be created on demand when needed)
+            SessionInfo sessionInfo = SessionInfo.newBuilder()
+                    .setConnHash(connHash)
+                    .setClientUUID(connectionDetails.getClientUUID())
+                    .setIsXA(true)
+                    .build();
+            
+            responseObserver.onNext(sessionInfo);
+            this.dbNameMap.put(connHash, DatabaseUtils.resolveDbName(connectionDetails.getUrl()));
+            responseObserver.onCompleted();
+            
+        } catch (Exception e) {
+            log.error("Failed to create unpooled XADataSource for connection hash {}: {}", 
+                    connHash, e.getMessage(), e);
+            SQLException sqlException = new SQLException("Failed to create unpooled XADataSource: " + e.getMessage(), e);
+            sendSQLExceptionMetadata(sqlException, responseObserver);
         }
     }
     
@@ -1787,9 +1838,34 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
             boolean isXA = sessionInfo.getIsXA();
             
             if (isXA) {
-                // XA connection - should already have a session created in connect()
-                // This shouldn't happen as XA sessions are created eagerly
-                throw new SQLException("XA session should already exist. Session UUID is missing.");
+                // XA connection - check if unpooled or pooled mode
+                XADataSource xaDataSource = this.xaDataSourceMap.get(connHash);
+                
+                if (xaDataSource != null) {
+                    // Unpooled XA mode: create XAConnection on demand
+                    try {
+                        log.debug("Creating unpooled XAConnection for hash: {}", connHash);
+                        XAConnection xaConnection = xaDataSource.getXAConnection();
+                        conn = xaConnection.getConnection();
+                        
+                        // Store the XAConnection in session for XA operations
+                        if (startSessionIfNone) {
+                            SessionInfo updatedSession = this.sessionManager.createSession(sessionInfo.getClientUUID(), conn);
+                            // Store XAConnection as an attribute for XA operations
+                            this.sessionManager.registerAttr(updatedSession, "xaConnection", xaConnection);
+                            dtoBuilder.session(updatedSession);
+                        }
+                        log.debug("Successfully created unpooled XAConnection for hash: {}", connHash);
+                    } catch (SQLException e) {
+                        log.error("Failed to create unpooled XAConnection for hash: {}. Error: {}",
+                                connHash, e.getMessage());
+                        throw e;
+                    }
+                } else {
+                    // Pooled XA mode - should already have a session created in connect()
+                    // This shouldn't happen as XA sessions are created eagerly
+                    throw new SQLException("XA session should already exist. Session UUID is missing.");
+                }
             } else {
                 // Regular connection - check if pooled or unpooled mode
                 UnpooledConnectionDetails unpooledDetails = this.unpooledConnectionDetailsMap.get(connHash);

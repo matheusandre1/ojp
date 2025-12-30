@@ -16,6 +16,11 @@ public class DatasourcePropertiesLoader {
     /**
      * Load ojp.properties and extract configuration specific to the given dataSource.
      * 
+     * Property precedence (highest to lowest):
+     * 1. Environment variables (e.g., MULTINODE_OJP_CONNECTION_POOL_ENABLED=false)
+     * 2. System properties (e.g., -Dmultinode.ojp.connection.pool.enabled=false)
+     * 3. Properties file (ojp.properties)
+     * 
      * @param dataSourceName The datasource name to load properties for
      * @return Properties for the specified datasource, or null if none found
      */
@@ -51,6 +56,69 @@ public class DatasourcePropertiesLoader {
                     key.startsWith("ojp.xa.connection.pool.") || 
                     key.startsWith("ojp.xa.")) {
                     dataSourceProperties.setProperty(key, allProperties.getProperty(key));
+                }
+            }
+        }
+        
+        // Merge system properties - they take precedence over file properties
+        // Check for datasource-specific system properties first
+        Properties systemProps = System.getProperties();
+        for (String key : systemProps.stringPropertyNames()) {
+            if (key.startsWith(poolPrefix) || key.startsWith(xaPoolPrefix) || key.startsWith(xaPrefix)) {
+                // Remove the dataSource prefix and keep the standard property name
+                String standardKey = key.substring(dataSourceName.length() + 1);
+                dataSourceProperties.setProperty(standardKey, systemProps.getProperty(key));
+                foundDataSourceSpecific = true;
+                log.debug("Overriding property from system property: {} = {}", standardKey, systemProps.getProperty(key));
+            }
+        }
+        
+        // For "default" datasource, also check unprefixed system properties
+        if ("default".equals(dataSourceName)) {
+            for (String key : systemProps.stringPropertyNames()) {
+                if (key.startsWith("ojp.connection.pool.") || 
+                    key.startsWith("ojp.xa.connection.pool.") || 
+                    key.startsWith("ojp.xa.")) {
+                    dataSourceProperties.setProperty(key, systemProps.getProperty(key));
+                    log.debug("Overriding property from system property: {} = {}", key, systemProps.getProperty(key));
+                }
+            }
+        }
+        
+        // Merge environment variables - they take highest precedence
+        // Environment variables use underscore separator and uppercase (e.g., MULTINODE_OJP_CONNECTION_POOL_ENABLED)
+        // Check for datasource-specific environment variables
+        for (java.util.Map.Entry<String, String> entry : System.getenv().entrySet()) {
+            String envKey = entry.getKey();
+            String envValue = entry.getValue();
+            
+            // Convert environment variable name to property key format
+            // E.g., MULTINODE_OJP_CONNECTION_POOL_ENABLED -> multinode.ojp.connection.pool.enabled
+            String propertyKey = envKey.toLowerCase().replace('_', '.');
+            
+            if (propertyKey.startsWith(poolPrefix) || propertyKey.startsWith(xaPoolPrefix) || propertyKey.startsWith(xaPrefix)) {
+                // Remove the dataSource prefix and keep the standard property name
+                String standardKey = propertyKey.substring(dataSourceName.length() + 1);
+                dataSourceProperties.setProperty(standardKey, envValue);
+                foundDataSourceSpecific = true;
+                log.debug("Overriding property from environment variable: {} = {}", standardKey, envValue);
+            }
+        }
+        
+        // For "default" datasource, also check unprefixed environment variables
+        if ("default".equals(dataSourceName)) {
+            for (java.util.Map.Entry<String, String> entry : System.getenv().entrySet()) {
+                String envKey = entry.getKey();
+                String envValue = entry.getValue();
+                
+                // Convert environment variable name to property key format
+                String propertyKey = envKey.toLowerCase().replace('_', '.');
+                
+                if (propertyKey.startsWith("ojp.connection.pool.") || 
+                    propertyKey.startsWith("ojp.xa.connection.pool.") || 
+                    propertyKey.startsWith("ojp.xa.")) {
+                    dataSourceProperties.setProperty(propertyKey, envValue);
+                    log.debug("Overriding property from environment variable: {} = {}", propertyKey, envValue);
                 }
             }
         }

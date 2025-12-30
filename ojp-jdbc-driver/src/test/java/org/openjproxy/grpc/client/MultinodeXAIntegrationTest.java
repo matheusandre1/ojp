@@ -29,6 +29,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+/**
+ * Multinode XA Integration Test
+ * 
+ * Configuration:
+ * - Non-XA pooling: DISABLED (multinode.ojp.connection.pool.enabled=false)
+ * - XA pooling: ENABLED with max pool size of 22 connections (min idle: 20)
+ * - Expected PostgreSQL connections: 20-25 total (XA pool only, no non-XA pool overhead)
+ * 
+ * This test validates XA transaction behavior across multiple OJP server nodes
+ * with isolation from non-XA connection pooling.
+ */
 @Slf4j
 public class MultinodeXAIntegrationTest {
     private static final int THREADS = 5; // Number of worker threads
@@ -65,7 +76,7 @@ public class MultinodeXAIntegrationTest {
         assumeFalse(isTestDisabled, "Multinode tests are disabled");
 
         this.setUp();
-        // 1. Schema and seeding (using non-XA connection for setup)
+        // 1. Schema and seeding (using non-XA connection for setup - no pooling due to test configuration)
         Class.forName(driverClass);
         try (Connection conn = java.sql.DriverManager.getConnection(url, user, password)) {
             Statement stmt = conn.createStatement();
@@ -211,7 +222,11 @@ public class MultinodeXAIntegrationTest {
 
     /**
      * Direct XA transaction wrapper: creates a new XAConnection, executes work inside an XA transaction,
-     * and properly cleans up resources. No external pooling layer.
+     * and properly cleans up resources. 
+     * 
+     * NOTE: This test uses UNPOOLED non-XA mode (ojp.connection.pool.enabled=false) to isolate
+     * XA connection behavior. Only XA connections will use pooling, with max pool size of 20-22 connections.
+     * This ensures PostgreSQL connection count stays within expected limits (20-25 total connections).
      */
     private static void withXATx(
             String driverClass,
@@ -223,7 +238,7 @@ public class MultinodeXAIntegrationTest {
         // Load driver if needed
         Class.forName(driverClass);
         
-        // Initialize XADataSource if needed
+        // Initialize XADataSource if needed (client-side, no pooling)
         if (xaDataSource == null) {
             synchronized (MultinodeXAIntegrationTest.class) {
                 if (xaDataSource == null) {
@@ -231,7 +246,7 @@ public class MultinodeXAIntegrationTest {
                     xaDataSource.setUrl(url);
                     xaDataSource.setUser(user);
                     xaDataSource.setPassword(password);
-                    log.info("✓ OjpXADataSource initialized (no pooling)");
+                    log.info("✓ OjpXADataSource initialized (client-side has no pooling; server-side XA pool max=20-22)");
                 }
             }
         }

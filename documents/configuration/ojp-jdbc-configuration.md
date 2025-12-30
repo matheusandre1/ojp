@@ -120,6 +120,7 @@ Connection backgroundConn = DriverManager.getConnection(
 
 | Property                              | Type | Default | Description                                              |
 |---------------------------------------|------|---------|----------------------------------------------------------|
+| `ojp.connection.pool.enabled`         | boolean | true | Enable/disable connection pooling |
 | `ojp.connection.pool.maximumPoolSize` | int  | 20      | Maximum number of connections in the pool                |
 | `ojp.connection.pool.minimumIdle`     | int  | 5       | Minimum number of idle connections maintained            |
 | `ojp.connection.pool.idleTimeout`     | long | 600000  | Maximum time (ms) a connection can sit idle (10 minutes) |
@@ -130,12 +131,133 @@ Connection backgroundConn = DriverManager.getConnection(
 - `ojp.connection.pool.maximumPoolSize=20` (default datasource)
 - `myApp.ojp.connection.pool.maximumPoolSize=50` (myApp datasource)
 
+### Disabling Connection Pooling
+
+Both Non-XA and XA connection pooling can be disabled independently using configuration properties. This is useful for:
+- **Development and Testing**: Simplify debugging by removing pool complexity
+- **Low-Frequency Applications**: When connection reuse overhead exceeds benefits
+- **Diagnostic Mode**: Isolate issues related to connection pooling
+- **Single-Threaded Applications**: Where connection pooling provides no benefit
+
+#### Non-XA Pool Disable
+
+Disable Non-XA connection pooling using:
+
+```properties
+# Disable pooling for default datasource
+ojp.connection.pool.enabled=false
+
+# Disable pooling for specific datasource
+myApp.ojp.connection.pool.enabled=false
+```
+
+**Configuration Precedence:**
+
+Properties can be specified in three ways, with the following precedence (highest to lowest):
+
+1. **Environment Variables** (highest priority)
+   ```bash
+   # Disable pooling via environment variable
+   export MYAPP_OJP_CONNECTION_POOL_ENABLED=false
+   export OJP_CONNECTION_POOL_ENABLED=false  # for default datasource
+   ```
+
+2. **System Properties** (via `-D` flags)
+   ```bash
+   # Disable pooling via system property
+   java -Dmyapp.ojp.connection.pool.enabled=false -jar app.jar
+   mvn test -Dmultinode.ojp.connection.pool.enabled=false
+   ```
+
+3. **Properties File** (`ojp.properties` - lowest priority)
+   ```properties
+   myapp.ojp.connection.pool.enabled=false
+   ```
+
+**Behavior when disabled:**
+- Connections created directly via `DriverManager.getConnection()`
+- No connection reuse - new connection per request
+- Lower memory overhead, higher connection acquisition latency
+- Pool size properties (maximumPoolSize, minimumIdle) are ignored
+
+**Example Configuration:**
+```properties
+# Debugging datasource with pool disabled
+debug.ojp.connection.pool.enabled=false
+debug.ojp.connection.pool.connectionTimeout=5000
+
+# Production datasource with pool enabled
+prod.ojp.connection.pool.enabled=true
+prod.ojp.connection.pool.maximumPoolSize=50
+prod.ojp.connection.pool.minimumIdle=10
+```
+
+#### XA Pool Disable
+
+Disable XA connection pooling using:
+
+```properties
+# Disable XA pooling for default datasource
+ojp.xa.connection.pool.enabled=false
+
+# Disable XA pooling for specific datasource
+myApp.ojp.xa.connection.pool.enabled=false
+```
+
+**Configuration Precedence:**
+
+Properties can be specified in three ways, with the following precedence (highest to lowest):
+
+1. **Environment Variables** (highest priority)
+   ```bash
+   # Disable XA pooling via environment variable
+   export MYAPP_OJP_XA_CONNECTION_POOL_ENABLED=false
+   export OJP_XA_CONNECTION_POOL_ENABLED=false  # for default datasource
+   ```
+
+2. **System Properties** (via `-D` flags)
+   ```bash
+   # Disable XA pooling via system property
+   java -Dmyapp.ojp.xa.connection.pool.enabled=false -jar app.jar
+   mvn test -Dmultinode.ojp.xa.connection.pool.enabled=false
+   ```
+
+3. **Properties File** (`ojp.properties` - lowest priority)
+   ```properties
+   myapp.ojp.xa.connection.pool.enabled=false
+   ```
+
+**Behavior when disabled:**
+- XADataSource created directly without pooling
+- XAConnections created on demand per session
+- No backend session pooling - direct XA operations
+- Lower overhead for infrequent XA transactions
+- Pool size properties (maxTotal, minIdle) are ignored
+
+**Example Configuration:**
+```properties
+# Testing XA datasource with pool disabled
+test.ojp.xa.connection.pool.enabled=false
+
+# Production XA datasource with pool enabled
+prod.ojp.xa.connection.pool.enabled=true
+prod.ojp.xa.connection.pool.maxTotal=50
+prod.ojp.xa.connection.pool.minIdle=10
+```
+
+**Important Notes:**
+- Non-XA and XA pool settings are **independent** - you can disable one without affecting the other
+- When pooling is disabled, connection acquisition is slower but simpler
+- Pool disable is applied per datasource name, allowing mixed configurations
+- For production workloads with high concurrency, keeping pooling enabled is recommended
+
 ### XA Backend Session Pool Configuration
 
-When using XA (distributed transaction) connections via `OjpXADataSource`, OJP uses **server-side backend session pooling** with Apache Commons Pool 2. This is separate from the HikariCP pooling used for non-XA connections.
+When using XA (distributed transaction) connections via `OjpXADataSource` **with pooling enabled**, OJP uses **server-side backend session pooling** with Apache Commons Pool 2. This is separate from the HikariCP pooling used for non-XA connections.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
+| `ojp.xa.connection.pool.enabled` | boolean | true | Enable/disable XA connection pooling |
 | `ojp.xa.connection.pool.maxTotal` | int | 20 | Maximum XA backend sessions per server |
 | `ojp.xa.connection.pool.minIdle` | int | 5 | Minimum idle XA sessions (pre-warmed) |
 | `ojp.xa.connection.pool.connectionTimeout` | long | 20000 | Max wait time (ms) to borrow session (20 seconds) |
@@ -147,7 +269,8 @@ When using XA (distributed transaction) connections via `OjpXADataSource`, OJP u
 
 #### XA Pool Architecture
 
-- **Client Side**: No connection pooling - connections created and closed after use
+- **Client Side**: No connection pooling - connections created and closed after use (when XA pooling enabled)
+- **Client Side (pooling disabled)**: XAConnections created on demand without any pooling
 - **Server Side**: Apache Commons Pool 2 pools PostgreSQL XA backend sessions
 - **Connection Reuse**: Physical XAConnection stays open across multiple transactions
 - **Dual-Condition Lifecycle**: Sessions returned to pool only when BOTH transaction complete AND client XAConnection closed
