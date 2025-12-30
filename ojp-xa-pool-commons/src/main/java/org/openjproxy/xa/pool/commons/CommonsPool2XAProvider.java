@@ -90,7 +90,9 @@ public class CommonsPool2XAProvider implements XAConnectionPoolProvider {
         
         try {
             // Instantiate vendor XADataSource via reflection
-            Class<?> xaDataSourceClass = Class.forName(className);
+            // Use the context class loader to find classes loaded from external JARs
+            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+            Class<?> xaDataSourceClass = Class.forName(className, true, classLoader);
             XADataSource vendorXADataSource = (XADataSource) xaDataSourceClass
                     .getDeclaredConstructor()
                     .newInstance();
