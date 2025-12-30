@@ -30,13 +30,13 @@ class DriverLoaderTest {
 
     @Test
     void testLoadDriversFromPath_NonExistentDirectory(@TempDir Path tempDir) {
-        // Should create the directory and return true
+        // Should return true and NOT create the directory
         Path libsPath = tempDir.resolve("ojp-libs");
         assertFalse(Files.exists(libsPath));
         
         assertTrue(DriverLoader.loadDriversFromPath(libsPath.toString()));
-        assertTrue(Files.exists(libsPath));
-        assertTrue(Files.isDirectory(libsPath));
+        // Directory should NOT be created
+        assertFalse(Files.exists(libsPath));
     }
 
     @Test

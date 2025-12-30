@@ -288,12 +288,4 @@ public class ServerConfiguration {
         return driversPath;
     }
     
-    /**
-     * @deprecated Use getDriversPath() instead. The path can now be configured to any directory name.
-     */
-    @Deprecated
-    public String getLibsPath() {
-        return driversPath;
-    }
-    
 }

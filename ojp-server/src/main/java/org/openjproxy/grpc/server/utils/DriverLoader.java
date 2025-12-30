@@ -38,17 +38,11 @@ public class DriverLoader {
         
         Path driverDir = Paths.get(driversPath);
         
-        // Create directory if it doesn't exist
+        // Check if directory exists
         if (!Files.exists(driverDir)) {
-            try {
-                Files.createDirectories(driverDir);
-                log.info("Created external libraries directory: {}", driverDir.toAbsolutePath());
-                log.info("Place proprietary JDBC drivers (e.g., ojdbc*.jar) in this directory");
-                return true;
-            } catch (Exception e) {
-                log.error("Failed to create external libraries directory: {}", driverDir.toAbsolutePath(), e);
-                return false;
-            }
+            log.info("External libraries directory not found: {}", driverDir.toAbsolutePath());
+            log.info("No external libraries will be loaded. To add proprietary drivers, create the directory and place JAR files there.");
+            return true;
         }
         
         // Check if it's a directory

@@ -8,7 +8,9 @@ Due to licensing restrictions, OJP cannot distribute proprietary JDBC drivers an
 
 ### Supported Proprietary Databases and Libraries
 
-- **Oracle Database** - Requires `ojdbc*.jar` (and optionally Oracle UCP: `ucp.jar`, `ons.jar`)
+- **Oracle Database** - Requires `ojdbc*.jar`
+  - **Optional**: Oracle UCP for advanced connection pooling (`ucp.jar`, `ons.jar`)
+    - **Note**: To use Oracle UCP with OJP, you must provide an implementation of at least one OJP SPI (Service Provider Interface): `XAConnectionPoolProvider` for XA transactions or `DataSourceProvider` for regular connections. See [OJP SPI Documentation](../spi/) for details.
 - **Microsoft SQL Server** - Requires `mssql-jdbc-*.jar`
 - **IBM DB2** - Requires `db2jcc*.jar` (and optionally `db2jcc_license_*.jar`)
 
@@ -24,12 +26,14 @@ Due to licensing restrictions, OJP cannot distribute proprietary JDBC drivers an
 
 ### Option 1: Runnable JAR (Local/VM Deployment)
 
+For complete instructions on building and running OJP as a runnable JAR, see the [OJP Server Runnable JAR Guide](../runnable-jar/README.md).
+
 #### Step 1: Download Drivers and Libraries
 
 Download the required JDBC driver and any additional libraries from the vendor:
 
 - **Oracle**: [Oracle JDBC Downloads](https://www.oracle.com/database/technologies/jdbc-downloads.html) (ojdbc*.jar)
-  - Optional: Oracle UCP for advanced connection pooling (ucp.jar, ons.jar)
+  - Optional: Oracle UCP for advanced connection pooling (ucp.jar, ons.jar) - requires SPI implementation
 - **SQL Server**: [Microsoft JDBC Driver Downloads](https://learn.microsoft.com/en-us/sql/connect/jdbc/download-microsoft-jdbc-driver-for-sql-server)
 - **DB2**: Contact IBM or check your DB2 installation directory
 
@@ -45,7 +49,7 @@ mkdir -p ./ojp-libs
 # Example for Oracle JDBC driver
 cp ~/Downloads/ojdbc11.jar ./ojp-libs/
 
-# Example for Oracle with UCP (Universal Connection Pool)
+# Example for Oracle with UCP (Universal Connection Pool) - requires SPI implementation
 cp ~/Downloads/ojdbc11.jar ./ojp-libs/
 cp ~/Downloads/ucp.jar ./ojp-libs/
 cp ~/Downloads/ons.jar ./ojp-libs/
@@ -341,11 +345,11 @@ A: No, OJP loads drivers and libraries at startup. Restart the server to load ne
 **Q: Does this work with JDBC driver dependencies?**  
 A: Yes, place all required JARs (driver + dependencies + additional libraries) in the external libraries directory.
 
-**Q: Can I add Oracle UCP or other connection pool libraries?**  
-A: Yes, any JAR file placed in the directory will be loaded into the classpath. This includes connection pool libraries like Oracle UCP (ucp.jar), monitoring libraries, and other dependencies.
+**Q: Can I use this with Oracle UCP or other connection pool libraries?**  
+A: Yes, any JAR file placed in the directory will be loaded into the classpath. This includes connection pool libraries like Oracle UCP (ucp.jar), monitoring libraries, and other dependencies. **Note**: Oracle UCP requires implementing at least one OJP SPI (Service Provider Interface) for connection pooling.
 
-**Q: Can I use this with embedded OJP?**  
-A: Yes, set `ojp.libs.path` before initializing OJP components.
+**Q: Can I use this when embedding OJP in my own application?**  
+A: Yes, when using OJP as an embedded library in your Java application (not as a standalone server), you can configure the external libraries path by setting the `ojp.libs.path` system property before initializing OJP components. This allows your application to use proprietary drivers without bundling them.
 
 ## Support
 
