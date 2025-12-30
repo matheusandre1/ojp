@@ -1618,7 +1618,7 @@ jobs:
       - name: Test (ojp-grpc-commons) with JDK 22
         run: mvn test -pl ojp-grpc-commons -Dgpg.skip=true
 
-       - name: Build (ojp-server) with JDK 22
+      - name: Build (ojp-server) with JDK 22
         run: mvn clean install -pl ojp-server -am -DskipTests -Dgpg.skip=true
 
       - name: Test and Run (ojp-server) with Oracle driver from ojp-libs
