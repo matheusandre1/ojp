@@ -489,7 +489,7 @@ com.example.xa.MyUniversalXAProvider
 
 ### Database-Specific Optimization Example
 
-You can create optimized providers for specific databases:
+You can create optimized providers for specific databases. To ensure your database-specific provider is selected, give it a higher priority than the universal provider:
 
 ```java
 public class OracleUCPXAProvider implements XAConnectionPoolProvider {
@@ -501,12 +501,14 @@ public class OracleUCPXAProvider implements XAConnectionPoolProvider {
 
     @Override
     public int getPriority() {
-        return 50; // Medium priority, specific to Oracle
+        // Must be higher than CommonsPool2XAProvider (100) to be selected
+        return 150;
     }
 
     @Override
     public boolean supportsDatabase(String jdbcUrl, String driverClassName) {
-        // Only support Oracle databases
+        // This method is currently informational
+        // Selection is based on isAvailable() and priority
         return jdbcUrl != null && jdbcUrl.startsWith("jdbc:oracle:");
     }
 
@@ -540,8 +542,9 @@ public class OracleUCPXAProvider implements XAConnectionPoolProvider {
 When multiple providers are available, OJP selects based on:
 
 1. **Availability**: The provider's `isAvailable()` must return `true`
-2. **Database Support**: For XA providers, `supportsDatabase()` must return `true`
-3. **Priority**: Higher priority wins (range typically 0-100)
+2. **Priority**: Higher priority wins (range typically 0-100)
+
+**Note**: Both ConnectionPoolProvider and XAConnectionPoolProvider use the same selection mechanism - **higher priority values take precedence**.
 
 ### Selection Examples
 
@@ -555,9 +558,9 @@ When multiple providers are available, OJP selects based on:
 - Custom pool available (priority 50) → **Custom pool selected** ✓
 - DBCP available (priority 10) → Not selected
 
-**Scenario 3**: XA pooling with Oracle
-- Oracle UCP provider (priority 50, supports Oracle) → **Selected for Oracle** ✓
-- CommonsPool2 (priority 100, universal) → Used for other databases ✓
+**Scenario 3**: XA pooling
+- CommonsPool2XAProvider available (priority 100) → **CommonsPool2XA selected** ✓
+- Custom XA provider available (priority 50) → Not selected
 
 ---
 
@@ -591,25 +594,32 @@ config.put("xa.maxPoolSize", "20");
 
 // OJP automatically:
 // 1. Discovers all XAConnectionPoolProvider implementations
-// 2. Checks isAvailable() and supportsDatabase()
-// 3. Selects best match based on priority
+// 2. Checks isAvailable() for each
+// 3. Selects the one with highest priority
 // 4. Creates pooled XADataSource
 ```
 
-### Example 3: Multiple Databases, Different Providers
+### Example 3: Multiple Databases
 
 ```java
 // Configuration for multiple databases
-// PostgreSQL - uses CommonsPool2XAProvider (universal)
+// All use the same provider (highest priority available)
+
+// PostgreSQL - uses CommonsPool2XAProvider (universal, priority 100)
 postgresConfig.put("xa.datasource.className", "org.postgresql.xa.PGXADataSource");
+postgresConfig.put("xa.url", "jdbc:postgresql://localhost:5432/mydb");
 
-// Oracle - uses OracleUCPXAProvider (if available, optimized)
+// Oracle - uses CommonsPool2XAProvider (universal, priority 100)
+// Unless OracleUCPXAProvider is available with priority > 100
 oracleConfig.put("xa.datasource.className", "oracle.jdbc.xa.client.OracleXADataSource");
+oracleConfig.put("xa.url", "jdbc:oracle:thin:@localhost:1521/XEPDB1");
 
-// SQL Server - uses CommonsPool2XAProvider (universal)
+// SQL Server - uses CommonsPool2XAProvider (universal, priority 100)
 sqlServerConfig.put("xa.datasource.className", "com.microsoft.sqlserver.jdbc.SQLServerXADataSource");
+sqlServerConfig.put("xa.url", "jdbc:sqlserver://localhost:1433;databaseName=mydb");
 
-// Each gets the best provider automatically!
+// All databases use the same XA provider (highest priority)
+// CommonsPool2XAProvider works with all databases via reflection
 ```
 
 ---
