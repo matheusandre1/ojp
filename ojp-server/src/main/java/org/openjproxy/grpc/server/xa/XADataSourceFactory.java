@@ -58,7 +58,10 @@ public class XADataSourceFactory {
             // Check if PostgreSQL driver is available
             Class.forName("org.postgresql.xa.PGXADataSource");
             
-            org.postgresql.xa.PGXADataSource xaDS = new org.postgresql.xa.PGXADataSource();
+            // Use reflection to create and configure PGXADataSource
+            XADataSource xaDS = (XADataSource) Class.forName("org.postgresql.xa.PGXADataSource")
+                    .getDeclaredConstructor()
+                    .newInstance();
             
             // Parse connection URL to extract host, port, database
             // Format: jdbc:postgresql://host:port/database or ojp[...]:host:port/database
@@ -81,20 +84,26 @@ public class XADataSourceFactory {
                     String host = hostPortParts[0];
                     int port = hostPortParts.length > 1 ? Integer.parseInt(hostPortParts[1]) : 5432;
                     
-                    xaDS.setServerNames(new String[]{host});
-                    xaDS.setPortNumbers(new int[]{port});
-                    xaDS.setDatabaseName(database);
+                    // Set properties using reflection
+                    xaDS.getClass().getMethod("setServerNames", String[].class).invoke(xaDS, (Object) new String[]{host});
+                    xaDS.getClass().getMethod("setPortNumbers", int[].class).invoke(xaDS, (Object) new int[]{port});
+                    xaDS.getClass().getMethod("setDatabaseName", String.class).invoke(xaDS, database);
                 }
             }
             
-            xaDS.setUser(connectionDetails.getUser());
-            xaDS.setPassword(connectionDetails.getPassword());
+            xaDS.getClass().getMethod("setUser", String.class).invoke(xaDS, connectionDetails.getUser());
+            xaDS.getClass().getMethod("setPassword", String.class).invoke(xaDS, connectionDetails.getPassword());
             
-            log.info("Created PostgreSQL XADataSource for host: {}", xaDS.getServerNames()[0]);
+            // Get server names for logging
+            String[] serverNames = (String[]) xaDS.getClass().getMethod("getServerNames").invoke(xaDS);
+            String host = (serverNames != null && serverNames.length > 0) ? serverNames[0] : "unknown";
+            log.info("Created PostgreSQL XADataSource for host: {}", host);
             return xaDS;
             
         } catch (ClassNotFoundException e) {
             throw new SQLException("PostgreSQL JDBC driver not found. Add postgresql JDBC driver to classpath.", e);
+        } catch (Exception e) {
+            throw new SQLException("Failed to create PostgreSQL XADataSource: " + e.getMessage(), e);
         }
     }
 
@@ -106,16 +115,22 @@ public class XADataSourceFactory {
             // Check if MySQL driver is available
             Class.forName("com.mysql.cj.jdbc.MysqlXADataSource");
             
-            com.mysql.cj.jdbc.MysqlXADataSource xaDS = new com.mysql.cj.jdbc.MysqlXADataSource();
-            xaDS.setUrl(url);
-            xaDS.setUser(connectionDetails.getUser());
-            xaDS.setPassword(connectionDetails.getPassword());
+            // Use reflection to create and configure MysqlXADataSource
+            XADataSource xaDS = (XADataSource) Class.forName("com.mysql.cj.jdbc.MysqlXADataSource")
+                    .getDeclaredConstructor()
+                    .newInstance();
+            
+            xaDS.getClass().getMethod("setUrl", String.class).invoke(xaDS, url);
+            xaDS.getClass().getMethod("setUser", String.class).invoke(xaDS, connectionDetails.getUser());
+            xaDS.getClass().getMethod("setPassword", String.class).invoke(xaDS, connectionDetails.getPassword());
             
             log.info("Created MySQL XADataSource for URL: {}", url);
             return xaDS;
             
         } catch (ClassNotFoundException e) {
             throw new SQLException("MySQL JDBC driver not found. Add mysql-connector-j to classpath.", e);
+        } catch (Exception e) {
+            throw new SQLException("Failed to create MySQL XADataSource: " + e.getMessage(), e);
         }
     }
 
@@ -322,7 +337,10 @@ public class XADataSourceFactory {
             // Check if PostgreSQL driver is available (CockroachDB uses PostgreSQL protocol)
             Class.forName("org.postgresql.xa.PGXADataSource");
             
-            org.postgresql.xa.PGXADataSource xaDS = new org.postgresql.xa.PGXADataSource();
+            // Use reflection to create and configure PGXADataSource
+            XADataSource xaDS = (XADataSource) Class.forName("org.postgresql.xa.PGXADataSource")
+                    .getDeclaredConstructor()
+                    .newInstance();
             
             // Parse connection URL to extract host, port, database
             // CockroachDB URL format: jdbc:postgresql://host:port/database
@@ -354,21 +372,26 @@ public class XADataSourceFactory {
                     String host = hostPortParts[0];
                     int port = hostPortParts.length > 1 ? Integer.parseInt(hostPortParts[1]) : 26257; // CockroachDB default port
                     
-                    xaDS.setServerNames(new String[]{host});
-                    xaDS.setPortNumbers(new int[]{port});
-                    xaDS.setDatabaseName(database);
+                    // Set properties using reflection
+                    xaDS.getClass().getMethod("setServerNames", String[].class).invoke(xaDS, (Object) new String[]{host});
+                    xaDS.getClass().getMethod("setPortNumbers", int[].class).invoke(xaDS, (Object) new int[]{port});
+                    xaDS.getClass().getMethod("setDatabaseName", String.class).invoke(xaDS, database);
                 }
             }
             
-            xaDS.setUser(connectionDetails.getUser());
-            xaDS.setPassword(connectionDetails.getPassword());
+            xaDS.getClass().getMethod("setUser", String.class).invoke(xaDS, connectionDetails.getUser());
+            xaDS.getClass().getMethod("setPassword", String.class).invoke(xaDS, connectionDetails.getPassword());
             
-            log.info("Created CockroachDB XADataSource (using PostgreSQL driver) for host: {}", 
-                    xaDS.getServerNames() != null && xaDS.getServerNames().length > 0 ? xaDS.getServerNames()[0] : "unknown");
+            // Get server names for logging
+            String[] serverNames = (String[]) xaDS.getClass().getMethod("getServerNames").invoke(xaDS);
+            String host = (serverNames != null && serverNames.length > 0) ? serverNames[0] : "unknown";
+            log.info("Created CockroachDB XADataSource (using PostgreSQL driver) for host: {}", host);
             return xaDS;
             
         } catch (ClassNotFoundException e) {
             throw new SQLException("PostgreSQL JDBC driver not found (required for CockroachDB). Add postgresql JDBC driver to classpath.", e);
+        } catch (Exception e) {
+            throw new SQLException("Failed to create CockroachDB XADataSource: " + e.getMessage(), e);
         }
     }
 }
