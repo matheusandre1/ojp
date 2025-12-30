@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
  * 
  * Configuration:
  * - Non-XA pooling: DISABLED (multinode.ojp.connection.pool.enabled=false)
- * - XA pooling: ENABLED with max pool size of 20 connections
+ * - XA pooling: ENABLED with max pool size of 22 connections (min idle: 20)
  * - Expected PostgreSQL connections: 20-25 total (XA pool only, no non-XA pool overhead)
  * 
  * This test validates XA transaction behavior across multiple OJP server nodes
