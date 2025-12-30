@@ -27,7 +27,7 @@ OJP provides two SPIs for different connection pooling needs:
 
 **Built-in Implementations**:
 - **HikariCP** (default, priority 100) - High-performance connection pool
-- **Apache DBCP** (priority 0) - Alternative connection pool
+- **Apache DBCP** (priority 10) - Alternative connection pool
 
 ### 2. XAConnectionPoolProvider - For Distributed Transactions
 
@@ -547,13 +547,13 @@ When multiple providers are available, OJP selects based on:
 
 **Scenario 1**: Standard connection pooling
 - HikariCP available (priority 100) → **HikariCP selected** ✓
-- DBCP available (priority 0) → Not selected
+- DBCP available (priority 10) → Not selected
 - Custom pool available (priority 50) → Not selected
 
 **Scenario 2**: HikariCP not on classpath
 - HikariCP unavailable (isAvailable = false) → Not selected
 - Custom pool available (priority 50) → **Custom pool selected** ✓
-- DBCP available (priority 0) → Not selected
+- DBCP available (priority 10) → Not selected
 
 **Scenario 3**: XA pooling with Oracle
 - Oracle UCP provider (priority 50, supports Oracle) → **Selected for Oracle** ✓
