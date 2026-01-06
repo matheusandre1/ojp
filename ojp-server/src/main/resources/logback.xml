@@ -2,39 +2,39 @@
 <configuration>
     <!-- 
     Configurable properties via system properties or environment variables:
-    - ojp.log.level: Root log level (default: INFO)
-    - ojp.log.file: Log file location (default: logs/ojp-server.log)
-    - ojp.log.fileNamePattern: Rolling file pattern (default: logs/ojp-server.%d{yyyy-MM-dd}.log)
-    - ojp.log.maxHistory: Number of days to keep logs (default: 30)
-    - ojp.log.totalSizeCap: Total size cap for all logs (default: 1GB)
-    - ojp.log.pattern: Log message pattern (default: %d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n)
+    - ojp.server.logLevel: Root log level (default: INFO)
+    - ojp.server.log.file: Log file location (default: logs/ojp-server.log)
+    - ojp.server.log.fileNamePattern: Rolling file pattern (default: logs/ojp-server.%d{yyyy-MM-dd}.log)
+    - ojp.server.log.maxHistory: Number of days to keep logs (default: 30)
+    - ojp.server.log.totalSizeCap: Total size cap for all logs (default: 1GB)
+    - ojp.server.log.pattern: Log message pattern (default: %d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n)
     -->
     
     <!-- Console appender for logging to stdout -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>${ojp.log.pattern:-%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n}</pattern>
+            <pattern>${ojp.server.log.pattern:-%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n}</pattern>
         </encoder>
     </appender>
 
     <!-- File appender for persistent logging -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${ojp.log.file:-logs/ojp-server.log}</file>
+        <file>${ojp.server.log.file:-logs/ojp-server.log}</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <!-- Daily rollover -->
-            <fileNamePattern>${ojp.log.fileNamePattern:-logs/ojp-server.%d{yyyy-MM-dd}.log}</fileNamePattern>
+            <fileNamePattern>${ojp.server.log.fileNamePattern:-logs/ojp-server.%d{yyyy-MM-dd}.log}</fileNamePattern>
             <!-- Keep configured days of history -->
-            <maxHistory>${ojp.log.maxHistory:-30}</maxHistory>
+            <maxHistory>${ojp.server.log.maxHistory:-30}</maxHistory>
             <!-- Cap total size -->
-            <totalSizeCap>${ojp.log.totalSizeCap:-1GB}</totalSizeCap>
+            <totalSizeCap>${ojp.server.log.totalSizeCap:-1GB}</totalSizeCap>
         </rollingPolicy>
         <encoder>
-            <pattern>${ojp.log.pattern:-%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n}</pattern>
+            <pattern>${ojp.server.log.pattern:-%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n}</pattern>
         </encoder>
     </appender>
 
-    <!-- Root logger configuration - level is configurable via ojp.log.level or ojp.server.logLevel -->
-    <root level="${ojp.log.level:-${ojp.server.logLevel:-INFO}}">
+    <!-- Root logger configuration - level is configurable via ojp.server.logLevel -->
+    <root level="${ojp.server.logLevel:-INFO}">
         <appender-ref ref="CONSOLE" />
         <appender-ref ref="FILE" />
     </root>

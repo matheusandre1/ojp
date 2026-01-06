@@ -98,44 +98,41 @@ The OJP Server now uses Logback with configurable options via system properties 
 
 | Property | Description | Default |
 |----------|-------------|---------|
-| `ojp.log.level` | Root log level (DEBUG, INFO, WARN, ERROR) | INFO |
-| `ojp.server.logLevel` | Alternative property for log level (backward compatible) | INFO |
-| `ojp.log.file` | Log file location | logs/ojp-server.log |
-| `ojp.log.fileNamePattern` | Rolling file pattern | logs/ojp-server.%d{yyyy-MM-dd}.log |
-| `ojp.log.maxHistory` | Number of days to keep logs | 30 |
-| `ojp.log.totalSizeCap` | Total size cap for all logs | 1GB |
-| `ojp.log.pattern` | Log message pattern | %d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n |
+| `ojp.server.logLevel` | Root log level (DEBUG, INFO, WARN, ERROR) | INFO |
+| `ojp.server.log.file` | Log file location | logs/ojp-server.log |
+| `ojp.server.log.fileNamePattern` | Rolling file pattern | logs/ojp-server.%d{yyyy-MM-dd}.log |
+| `ojp.server.log.maxHistory` | Number of days to keep logs | 30 |
+| `ojp.server.log.totalSizeCap` | Total size cap for all logs | 1GB |
+| `ojp.server.log.pattern` | Log message pattern | %d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n |
 
 ### Configuration Examples
 
 **Via System Properties:**
 ```bash
-java -Dojp.log.level=DEBUG \
-     -Dojp.log.file=/var/log/ojp/server.log \
-     -Dojp.log.maxHistory=60 \
-     -Dojp.log.totalSizeCap=5GB \
+java -Dojp.server.logLevel=DEBUG \
+     -Dojp.server.log.file=/var/log/ojp/server.log \
+     -Dojp.server.log.maxHistory=60 \
+     -Dojp.server.log.totalSizeCap=5GB \
      -jar ojp-server.jar
 ```
 
 **Via Environment Variables:**
 ```bash
-export ojp.log.level=DEBUG
-export ojp.log.file=/var/log/ojp/server.log
-export ojp.log.maxHistory=60
-export ojp.log.totalSizeCap=5GB
+export ojp.server.logLevel=DEBUG
+export ojp.server.log.file=/var/log/ojp/server.log
+export ojp.server.log.maxHistory=60
+export ojp.server.log.totalSizeCap=5GB
 ./run-server.sh
 ```
 
 **Via ojp.properties file:**
 ```properties
 # Logging Configuration
-ojp.log.level=DEBUG
-ojp.log.file=/var/log/ojp/server.log
-ojp.log.maxHistory=60
-ojp.log.totalSizeCap=5GB
+ojp.server.logLevel=DEBUG
+ojp.server.log.file=/var/log/ojp/server.log
+ojp.server.log.maxHistory=60
+ojp.server.log.totalSizeCap=5GB
 ```
-
-**Note:** The `ojp.log.level` property also accepts the existing `ojp.server.logLevel` for backward compatibility.
 
 ## Additional Resources
 - Spring Boot guide: `documents/java-frameworks/spring-boot/README.md`
