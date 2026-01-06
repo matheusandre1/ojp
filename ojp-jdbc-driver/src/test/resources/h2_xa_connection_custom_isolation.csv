@@ -1,0 +1,1 @@
+org.openjproxy.jdbc.Driver,jdbc:ojp[localhost:1059]_h2:~/test?ojp.xa.connection.pool.defaultTransactionIsolation=SERIALIZABLE,sa,

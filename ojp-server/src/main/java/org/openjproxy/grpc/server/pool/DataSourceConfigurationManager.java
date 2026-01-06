@@ -262,12 +262,17 @@ public class DataSourceConfigurationManager {
     }
     
     /**
-     * Gets a transaction isolation level property. Accepts both integer values and string names.
-     * Returns null if not specified, allowing auto-detection from database.
+     * Gets a transaction isolation level property from string names.
+     * Returns null if not specified, defaulting to READ_COMMITTED.
+     * 
+     * <p>This method provides explicit validation of transaction isolation values,
+     * accepting only well-known string names (case-insensitive). Invalid values
+     * are rejected with a warning and null is returned, which causes the system
+     * to fall back to the default READ_COMMITTED isolation level.</p>
      * 
      * @param properties The properties object
      * @param key The property key
-     * @return The transaction isolation level constant, or null if not specified
+     * @return The transaction isolation level constant, or null if not specified or invalid
      */
     private static Integer getTransactionIsolationProperty(Properties properties, String key) {
         if (properties == null || !properties.containsKey(key)) {
@@ -281,7 +286,7 @@ public class DataSourceConfigurationManager {
         
         value = value.trim();
         
-        // Parse string names (case-insensitive)
+        // Parse string names (case-insensitive) with explicit validation
         switch (value.toUpperCase()) {
             case "TRANSACTION_NONE":
             case "NONE":
@@ -299,9 +304,10 @@ public class DataSourceConfigurationManager {
             case "SERIALIZABLE":
                 return java.sql.Connection.TRANSACTION_SERIALIZABLE;
             default:
-                log.warn("Invalid transaction isolation value for property '{}': {}. " +
-                        "Valid values are: NONE, READ_UNCOMMITTED, READ_COMMITTED, REPEATABLE_READ, SERIALIZABLE. " +
-                        "Auto-detection will be used.", key, value);
+                log.warn("Invalid transaction isolation value for property '{}': '{}'. " +
+                        "Valid values are: NONE, READ_UNCOMMITTED, READ_COMMITTED, REPEATABLE_READ, SERIALIZABLE " +
+                        "(or their TRANSACTION_* variants). " +
+                        "READ_COMMITTED will be used as default.", key, value);
                 return null;
         }
     }
