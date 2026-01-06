@@ -131,9 +131,10 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
     private final ClusterHealthTracker clusterHealthTracker = new ClusterHealthTracker();
     
     // Unpooled connection details (for passthrough mode when pooling is disabled)
+    // Note: Public visibility required for access by action classes in action.connection package
     @Builder
     @Getter
-    static class UnpooledConnectionDetails {
+    public static class UnpooledConnectionDetails {
         private final String url;
         private final String username;
         private final String password;

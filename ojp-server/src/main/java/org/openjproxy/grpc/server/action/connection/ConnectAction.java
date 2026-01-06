@@ -114,12 +114,8 @@ public class ConnectAction implements Action<ConnectionDetails, SessionInfo> {
                                         StreamObserver<SessionInfo> responseObserver) {
         // Handle non-XA connection - check if pooling is enabled
         DataSource ds = context.getDatasourceMap().get(connHash);
-        
-        // Cast the wildcard map to the specific type since we're in the same package as StatementServiceImpl
-        @SuppressWarnings("unchecked")
-        Map<String, StatementServiceImpl.UnpooledConnectionDetails> unpooledMap = 
-                (Map<String, StatementServiceImpl.UnpooledConnectionDetails>) context.getUnpooledConnectionDetailsMap();
-        StatementServiceImpl.UnpooledConnectionDetails unpooledDetails = unpooledMap.get(connHash);
+        StatementServiceImpl.UnpooledConnectionDetails unpooledDetails = 
+                context.getUnpooledConnectionDetailsMap().get(connHash);
         
         if (ds == null && unpooledDetails == null) {
             try {
@@ -137,7 +133,7 @@ public class ConnectAction implements Action<ConnectionDetails, SessionInfo> {
                             .password(connectionDetails.getPassword())
                             .connectionTimeout(dsConfig.getConnectionTimeout())
                             .build();
-                    unpooledMap.put(connHash, unpooledDetails);
+                    context.getUnpooledConnectionDetailsMap().put(connHash, unpooledDetails);
                     
                     log.info("Unpooled (passthrough) mode enabled for dataSource '{}' with connHash: {}", 
                             dsConfig.getDataSourceName(), connHash);
