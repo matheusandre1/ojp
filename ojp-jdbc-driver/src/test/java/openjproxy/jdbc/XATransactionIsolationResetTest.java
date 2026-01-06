@@ -3,8 +3,7 @@ package openjproxy.jdbc;
 import lombok.extern.slf4j.Slf4j;
 import openjproxy.jdbc.testutil.TestDBUtils;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.condition.EnabledIf;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvFileSource;
 import org.openjproxy.jdbc.xa.OjpXADataSource;
@@ -24,18 +23,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * 
  * These tests mirror the non-XA TransactionIsolationResetTest but specifically validate
  * XA connection pool behavior using Commons Pool 2.
+ * 
+ * NOTE: These tests require a running OJP server and are disabled by default.
+ * Enable with -DenableH2Tests=true
  */
 @Slf4j
+@EnabledIf("openjproxy.jdbc.XATransactionIsolationResetTest#isH2TestEnabled")
 public class XATransactionIsolationResetTest {
-
-    private static boolean isH2TestEnabled;
 
     private final List<XAConnection> xaConnections = new ArrayList<>();
     private final List<Connection> connections = new ArrayList<>();
 
-    @BeforeAll
-    public static void setupClass() {
-        isH2TestEnabled = Boolean.parseBoolean(System.getProperty("enableH2Tests", "false"));
+    public static boolean isH2TestEnabled() {
+        return Boolean.parseBoolean(System.getProperty("enableH2Tests", "false"));
     }
 
     @AfterEach
@@ -74,8 +74,6 @@ public class XATransactionIsolationResetTest {
     @ParameterizedTest
     @CsvFileSource(resources = "/h2_xa_connection.csv")
     public void testXAConnectionStatePollutionPrevention(String driverClass, String url, String user, String password) throws SQLException {
-        Assumptions.assumeTrue(isH2TestEnabled, "Skipping H2 XA tests - not enabled");
-        
         // Create XA DataSource
         OjpXADataSource xaDataSource = new OjpXADataSource();
         xaDataSource.setUrl(url);
@@ -151,8 +149,6 @@ public class XATransactionIsolationResetTest {
     @ParameterizedTest
     @CsvFileSource(resources = "/h2_xa_connection.csv")
     public void testXARapidIsolationChangesMultipleClients(String driverClass, String url, String user, String password) throws SQLException {
-        Assumptions.assumeTrue(isH2TestEnabled, "Skipping H2 XA tests - not enabled");
-        
         OjpXADataSource xaDataSource = new OjpXADataSource();
         xaDataSource.setUrl(url);
         xaDataSource.setUser(user);
@@ -215,8 +211,6 @@ public class XATransactionIsolationResetTest {
     @ParameterizedTest
     @CsvFileSource(resources = "/h2_xa_connection.csv")
     public void testXAExtremeIsolationLevelChanges(String driverClass, String url, String user, String password) throws SQLException {
-        Assumptions.assumeTrue(isH2TestEnabled, "Skipping H2 XA tests - not enabled");
-        
         OjpXADataSource xaDataSource = new OjpXADataSource();
         xaDataSource.setUrl(url);
         xaDataSource.setUser(user);
@@ -279,8 +273,6 @@ public class XATransactionIsolationResetTest {
     @ParameterizedTest
     @CsvFileSource(resources = "/h2_xa_connection.csv")
     public void testXAIsolationResetAfterConnectionLeak(String driverClass, String url, String user, String password) throws SQLException {
-        Assumptions.assumeTrue(isH2TestEnabled, "Skipping H2 XA tests - not enabled");
-        
         OjpXADataSource xaDataSource = new OjpXADataSource();
         xaDataSource.setUrl(url);
         xaDataSource.setUser(user);
@@ -320,8 +312,6 @@ public class XATransactionIsolationResetTest {
     @ParameterizedTest
     @CsvFileSource(resources = "/h2_xa_connection.csv")
     public void testXABasicIsolationReset(String driverClass, String url, String user, String password) throws SQLException {
-        Assumptions.assumeTrue(isH2TestEnabled, "Skipping H2 XA tests - not enabled");
-        
         OjpXADataSource xaDataSource = new OjpXADataSource();
         xaDataSource.setUrl(url);
         xaDataSource.setUser(user);
@@ -360,8 +350,6 @@ public class XATransactionIsolationResetTest {
     @ParameterizedTest
     @CsvFileSource(resources = "/h2_xa_connection.csv")
     public void testXAMultipleIsolationChangesInSession(String driverClass, String url, String user, String password) throws SQLException {
-        Assumptions.assumeTrue(isH2TestEnabled, "Skipping H2 XA tests - not enabled");
-        
         OjpXADataSource xaDataSource = new OjpXADataSource();
         xaDataSource.setUrl(url);
         xaDataSource.setUser(user);
@@ -406,8 +394,6 @@ public class XATransactionIsolationResetTest {
     @ParameterizedTest
     @CsvFileSource(resources = "/h2_xa_connection.csv")
     public void testXADefaultIsolationLevel(String driverClass, String url, String user, String password) throws SQLException {
-        Assumptions.assumeTrue(isH2TestEnabled, "Skipping H2 XA tests - not enabled");
-        
         OjpXADataSource xaDataSource = new OjpXADataSource();
         xaDataSource.setUrl(url);
         xaDataSource.setUser(user);
@@ -430,8 +416,6 @@ public class XATransactionIsolationResetTest {
     @ParameterizedTest
     @CsvFileSource(resources = "/h2_xa_connection_custom_isolation.csv")
     public void testXAConfiguredCustomIsolation(String driverClass, String url, String user, String password) throws SQLException {
-        Assumptions.assumeTrue(isH2TestEnabled, "Skipping H2 XA tests - not enabled");
-        
         // URL includes property: ojp.xa.connection.pool.defaultTransactionIsolation=SERIALIZABLE
         OjpXADataSource xaDataSource = new OjpXADataSource();
         xaDataSource.setUrl(url);
