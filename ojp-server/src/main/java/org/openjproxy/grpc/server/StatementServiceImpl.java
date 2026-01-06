@@ -130,16 +130,7 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
     // Cluster health tracker for monitoring health changes
     private final ClusterHealthTracker clusterHealthTracker = new ClusterHealthTracker();
     
-    // Unpooled connection details (for passthrough mode when pooling is disabled)
-    // Note: Public visibility required for access by action classes in action.connection package
-    @Builder
-    @Getter
-    public static class UnpooledConnectionDetails {
-        private final String url;
-        private final String username;
-        private final String password;
-        private final long connectionTimeout;
-    }
+    // Unpooled connection details map (for passthrough mode when pooling is disabled)
     private final Map<String, UnpooledConnectionDetails> unpooledConnectionDetailsMap = new ConcurrentHashMap<>();
     
     private static final List<String> INPUT_STREAM_TYPES = Arrays.asList("RAW", "BINARY VARYING", "BYTEA");

@@ -12,7 +12,7 @@ import org.openjproxy.datasource.ConnectionPoolProviderRegistry;
 import org.openjproxy.datasource.PoolConfig;
 import org.openjproxy.grpc.server.MultinodePoolCoordinator;
 import org.openjproxy.grpc.server.MultinodeXaCoordinator;
-import org.openjproxy.grpc.server.StatementServiceImpl;
+import org.openjproxy.grpc.server.UnpooledConnectionDetails;
 import org.openjproxy.grpc.server.action.Action;
 import org.openjproxy.grpc.server.action.ActionContext;
 import org.openjproxy.grpc.server.pool.ConnectionPoolConfigurer;
@@ -114,7 +114,7 @@ public class ConnectAction implements Action<ConnectionDetails, SessionInfo> {
                                         StreamObserver<SessionInfo> responseObserver) {
         // Handle non-XA connection - check if pooling is enabled
         DataSource ds = context.getDatasourceMap().get(connHash);
-        StatementServiceImpl.UnpooledConnectionDetails unpooledDetails = 
+        UnpooledConnectionDetails unpooledDetails = 
                 context.getUnpooledConnectionDetailsMap().get(connHash);
         
         if (ds == null && unpooledDetails == null) {
@@ -127,7 +127,7 @@ public class ConnectAction implements Action<ConnectionDetails, SessionInfo> {
                 // Check if pooling is enabled
                 if (!dsConfig.isPoolEnabled()) {
                     // Unpooled mode: store connection details for direct connection creation
-                    unpooledDetails = StatementServiceImpl.UnpooledConnectionDetails.builder()
+                    unpooledDetails = UnpooledConnectionDetails.builder()
                             .url(UrlParser.parseUrl(connectionDetails.getUrl()))
                             .username(connectionDetails.getUser())
                             .password(connectionDetails.getPassword())

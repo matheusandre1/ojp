@@ -1,9 +1,15 @@
 package org.openjproxy.grpc.server.action;
 
-import org.openjproxy.grpc.server.*;
+import com.openjproxy.grpc.DbName;
+import org.openjproxy.grpc.server.CircuitBreaker;
+import org.openjproxy.grpc.server.ClusterHealthTracker;
+import org.openjproxy.grpc.server.MultinodeXaCoordinator;
+import org.openjproxy.grpc.server.ServerConfiguration;
+import org.openjproxy.grpc.server.SessionManager;
+import org.openjproxy.grpc.server.SlowQuerySegregationManager;
+import org.openjproxy.grpc.server.UnpooledConnectionDetails;
 import org.openjproxy.xa.pool.XATransactionRegistry;
 import org.openjproxy.xa.pool.spi.XAConnectionPoolProvider;
-import com.openjproxy.grpc.DbName;
 
 import javax.sql.DataSource;
 import javax.sql.XADataSource;
@@ -49,7 +55,7 @@ public class ActionContext {
      * Key: connection hash
      * Value: connection details for creating direct JDBC connections
      */
-    private final Map<String, StatementServiceImpl.UnpooledConnectionDetails> unpooledConnectionDetailsMap;
+    private final Map<String, UnpooledConnectionDetails> unpooledConnectionDetailsMap;
     
     /**
      * Map of connection hash to database type.
@@ -117,7 +123,7 @@ public class ActionContext {
             Map<String, DataSource> datasourceMap,
             Map<String, XADataSource> xaDataSourceMap,
             Map<String, XATransactionRegistry> xaRegistries,
-            Map<String, StatementServiceImpl.UnpooledConnectionDetails> unpooledConnectionDetailsMap,
+            Map<String, UnpooledConnectionDetails> unpooledConnectionDetailsMap,
             Map<String, DbName> dbNameMap,
             Map<String, SlowQuerySegregationManager> slowQuerySegregationManagers,
             XAConnectionPoolProvider xaPoolProvider,
@@ -155,7 +161,7 @@ public class ActionContext {
         return xaRegistries;
     }
     
-    public Map<String, StatementServiceImpl.UnpooledConnectionDetails> getUnpooledConnectionDetailsMap() {
+    public Map<String, UnpooledConnectionDetails> getUnpooledConnectionDetailsMap() {
         return unpooledConnectionDetailsMap;
     }
     
