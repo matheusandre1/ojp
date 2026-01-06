@@ -29,7 +29,7 @@ class TransactionIsolationConfigurationTest {
         DataSourceConfigurationManager.DataSourceConfiguration config = 
             DataSourceConfigurationManager.getConfiguration(props);
         
-        assertEquals(Connection.TRANSACTION_READ_COMMITTED, config.getPoolConfig().getDefaultTransactionIsolation());
+        assertEquals(Connection.TRANSACTION_READ_COMMITTED, config.getDefaultTransactionIsolation());
     }
 
     @Test
@@ -41,7 +41,7 @@ class TransactionIsolationConfigurationTest {
         DataSourceConfigurationManager.XADataSourceConfiguration config = 
             DataSourceConfigurationManager.getXAConfiguration(props);
         
-        assertEquals(Connection.TRANSACTION_SERIALIZABLE, config.getPoolConfig().getDefaultTransactionIsolation());
+        assertEquals(Connection.TRANSACTION_SERIALIZABLE, config.getDefaultTransactionIsolation());
     }
 
     @Test
@@ -53,7 +53,7 @@ class TransactionIsolationConfigurationTest {
         DataSourceConfigurationManager.DataSourceConfiguration config = 
             DataSourceConfigurationManager.getConfiguration(props);
         
-        assertEquals(Connection.TRANSACTION_READ_COMMITTED, config.getPoolConfig().getDefaultTransactionIsolation());
+        assertEquals(Connection.TRANSACTION_READ_COMMITTED, config.getDefaultTransactionIsolation());
     }
 
     @Test
@@ -65,7 +65,7 @@ class TransactionIsolationConfigurationTest {
         DataSourceConfigurationManager.DataSourceConfiguration config = 
             DataSourceConfigurationManager.getConfiguration(props);
         
-        assertEquals(Connection.TRANSACTION_READ_COMMITTED, config.getPoolConfig().getDefaultTransactionIsolation());
+        assertEquals(Connection.TRANSACTION_READ_COMMITTED, config.getDefaultTransactionIsolation());
     }
 
     @Test
@@ -78,7 +78,7 @@ class TransactionIsolationConfigurationTest {
             DataSourceConfigurationManager.getConfiguration(props);
         
         // Numeric values should be rejected and return null (auto-detect)
-        assertNull(config.getPoolConfig().getDefaultTransactionIsolation(), 
+        assertNull(config.getDefaultTransactionIsolation(), 
                 "Numeric values should not be accepted - should fall back to null");
     }
 
@@ -91,7 +91,7 @@ class TransactionIsolationConfigurationTest {
         DataSourceConfigurationManager.DataSourceConfiguration config = 
             DataSourceConfigurationManager.getConfiguration(props);
         
-        assertNull(config.getPoolConfig().getDefaultTransactionIsolation(), 
+        assertNull(config.getDefaultTransactionIsolation(), 
                 "Invalid values should return null for auto-detection");
     }
 
@@ -104,7 +104,7 @@ class TransactionIsolationConfigurationTest {
         DataSourceConfigurationManager.DataSourceConfiguration config = 
             DataSourceConfigurationManager.getConfiguration(props);
         
-        assertNull(config.getPoolConfig().getDefaultTransactionIsolation(), 
+        assertNull(config.getDefaultTransactionIsolation(), 
                 "When property not set, should return null for auto-detection");
     }
 
@@ -134,7 +134,7 @@ class TransactionIsolationConfigurationTest {
             DataSourceConfigurationManager.DataSourceConfiguration config = 
                 DataSourceConfigurationManager.getConfiguration(props);
             
-            assertEquals(expectedValues[i], config.getPoolConfig().getDefaultTransactionIsolation(), 
+            assertEquals(expectedValues[i], config.getDefaultTransactionIsolation(), 
                     "Failed to parse: " + validNames[i]);
             
             // Clear cache for next iteration
@@ -151,7 +151,7 @@ class TransactionIsolationConfigurationTest {
         DataSourceConfigurationManager.DataSourceConfiguration config = 
             DataSourceConfigurationManager.getConfiguration(props);
         
-        assertEquals(Connection.TRANSACTION_READ_COMMITTED, config.getPoolConfig().getDefaultTransactionIsolation(),
+        assertEquals(Connection.TRANSACTION_READ_COMMITTED, config.getDefaultTransactionIsolation(),
                 "Should trim whitespace from configuration values");
     }
 
@@ -164,7 +164,7 @@ class TransactionIsolationConfigurationTest {
         DataSourceConfigurationManager.DataSourceConfiguration config = 
             DataSourceConfigurationManager.getConfiguration(props);
         
-        assertNull(config.getPoolConfig().getDefaultTransactionIsolation(), 
+        assertNull(config.getDefaultTransactionIsolation(), 
                 "Empty string should be treated as null");
     }
 
@@ -180,7 +180,7 @@ class TransactionIsolationConfigurationTest {
         DataSourceConfigurationManager.XADataSourceConfiguration xaConfig = 
             DataSourceConfigurationManager.getXAConfiguration(props);
         
-        assertEquals(Connection.TRANSACTION_READ_COMMITTED, nonXAConfig.getPoolConfig().getDefaultTransactionIsolation());
-        assertEquals(Connection.TRANSACTION_SERIALIZABLE, xaConfig.getPoolConfig().getDefaultTransactionIsolation());
+        assertEquals(Connection.TRANSACTION_READ_COMMITTED, nonXAConfig.getDefaultTransactionIsolation());
+        assertEquals(Connection.TRANSACTION_SERIALIZABLE, xaConfig.getDefaultTransactionIsolation());
     }
 }
