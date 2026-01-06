@@ -21,20 +21,15 @@ This can lead to:
 
 ## Solution
 
-OJP automatically detects and configures the default transaction isolation level for each datasource, ensuring that connections are reset to their default state when returned to the pool.
+OJP uses READ_COMMITTED as the default transaction isolation level for all datasources, ensuring that connections are reset to a consistent state when returned to the pool.
 
 ### How It Works
 
-1. **Detection Phase**: When a datasource is first created, OJP:
-   - Creates a temporary connection
-   - Queries the database's default transaction isolation level
-   - Stores this value for future use
-
-2. **Configuration Phase**: OJP reconfigures the connection pool with:
-   - The detected default transaction isolation level
+1. **Configuration Phase**: OJP configures the connection pool with:
+   - READ_COMMITTED as the default transaction isolation level (or custom value if configured)
    - Connection pool settings to reset isolation on connection return
 
-3. **Runtime Behavior**:
+2. **Runtime Behavior**:
    - Clients can change transaction isolation during their session
    - When a session terminates, the connection returns to the pool
    - The pool automatically resets the isolation to the default level
@@ -140,11 +135,11 @@ OJP supports all standard JDBC transaction isolation levels:
 
 ## Configuration
 
-### Automatic Detection (Default)
+### Default Behavior
 
-By default, OJP automatically detects the database's default transaction isolation level. No configuration required.
+By default, OJP uses READ_COMMITTED as the default transaction isolation level. No configuration required.
 
-### Manual Configuration
+### Custom Configuration
 
 You can explicitly set a default transaction isolation level via properties. This is useful when:
 - You want all connections to use a specific isolation level regardless of database default
@@ -191,11 +186,11 @@ ojp.xa.connection.pool.defaultTransactionIsolation=SERIALIZABLE
 **Behavior:**
 
 - **When configured**: All connections will be reset to this configured isolation level when returned to the pool
-- **When not configured**: OJP auto-detects the database default (typically READ_COMMITTED) and uses that for reset
-- **Invalid values**: Logged as warning, auto-detection will be used instead
+- **When not configured**: Defaults to READ_COMMITTED for all connections
+- **Invalid values**: Logged as warning, defaults to READ_COMMITTED
 - **Per-datasource**: Configuration is per-datasource in multi-datasource setups
 
-**Performance Note:** When a custom isolation level is configured, OJP creates the datasource only once (no double-creation needed), making it slightly more efficient than auto-detection.
+**Performance Note:** When a custom isolation level is configured, OJP creates the datasource only once (no double-creation needed for detection).
 
 ## Testing
 
@@ -224,8 +219,8 @@ These tests verify end-to-end behavior with actual OJP server and client connect
 
 The transaction isolation reset feature has minimal performance impact:
 
-1. **One-time Detection**: Isolation level detection happens once when the datasource is created
-2. **Datasource Recreation**: The datasource is closed and recreated once during initialization
+1. **No Detection Overhead**: Uses READ_COMMITTED as default (no detection phase)
+2. **Single Datasource Creation**: Datasource is created once during initialization
 3. **Connection Return**: HikariCP and DBCP2 handle isolation reset efficiently
 
 ### Benefits
@@ -245,7 +240,7 @@ The transaction isolation reset feature has minimal performance impact:
 
 ### For OJP Administrators
 
-1. **Monitor Logs**: Check server logs for isolation detection messages
+1. **Monitor Logs**: Check server logs for configuration messages
 2. **Verify Configuration**: Ensure datasources are configured correctly
 3. **Performance Testing**: Test with realistic workloads to ensure proper behavior
 
@@ -262,7 +257,7 @@ The transaction isolation reset feature has minimal performance impact:
 
 **Solution**:
 - Verify OJP version includes isolation reset feature
-- Check server logs for isolation detection messages
+- Check server logs for configuration messages
 - Ensure clients properly close connections
 
 ### Issue: Performance Degradation
@@ -284,9 +279,9 @@ The transaction isolation reset feature has minimal performance impact:
 
 If you're upgrading from a version without transaction isolation reset:
 
-1. **No Configuration Required**: The feature is enabled automatically
+1. **No Configuration Required**: The feature is enabled automatically with READ_COMMITTED as default
 2. **Verify Behavior**: Run your test suite to ensure no unexpected changes
-3. **Monitor Logs**: Check for isolation detection messages during startup
+3. **Monitor Logs**: Check for configuration messages during startup
 4. **Clean Slate**: Existing connections will be cleaned when returned to pool
 
 ### Potential Issues
@@ -299,10 +294,9 @@ If you're upgrading from a version without transaction isolation reset:
 
 Potential improvements for future versions:
 
-1. **Configurable Detection**: Allow manual override of detected isolation level
-2. **Per-DataSource Configuration**: Configure different isolation levels per datasource
-3. **Metrics**: Track isolation level changes and reset operations
-4. **Warnings**: Log warnings when clients change isolation frequently
+1. **Per-DataSource Configuration**: Configure different isolation levels per datasource (already supported via properties)
+2. **Metrics**: Track isolation level changes and reset operations
+3. **Warnings**: Log warnings when clients change isolation frequently
 
 ## References
 

@@ -126,7 +126,7 @@ Connection backgroundConn = DriverManager.getConnection(
 | `ojp.connection.pool.idleTimeout`     | long | 600000  | Maximum time (ms) a connection can sit idle (10 minutes) |
 | `ojp.connection.pool.maxLifetime`     | long | 1800000 | Maximum lifetime (ms) of a connection (30 minutes)       |
 | `ojp.connection.pool.connectionTimeout` | long | 10000   | Maximum time (ms) to wait for a connection (10 seconds)  |
-| `ojp.connection.pool.defaultTransactionIsolation` | string/int | auto-detect | Default transaction isolation level (see below) |
+| `ojp.connection.pool.defaultTransactionIsolation` | string/int | READ_COMMITTED | Default transaction isolation level (see below) |
 
 **Note**: These properties can be used with or without a datasource name prefix. For example:
 - `ojp.connection.pool.maximumPoolSize=20` (default datasource)
@@ -138,14 +138,14 @@ OJP automatically resets transaction isolation levels when connections are retur
 
 #### Behavior
 
-By default, OJP **auto-detects** the database's default transaction isolation level during datasource initialization. You can override this by explicitly configuring a custom isolation level.
+By default, OJP uses **READ_COMMITTED** as the default transaction isolation level. You can override this by explicitly configuring a different isolation level.
 
 #### Configuration Property
 
 | Property                              | Type | Default | Description                                              |
 |---------------------------------------|------|---------|----------------------------------------------------------|
-| `ojp.connection.pool.defaultTransactionIsolation` | string/int | auto-detect | Transaction isolation level to reset connections to |
-| `ojp.xa.connection.pool.defaultTransactionIsolation` | string/int | auto-detect | Transaction isolation level for XA connections |
+| `ojp.connection.pool.defaultTransactionIsolation` | string/int | READ_COMMITTED | Transaction isolation level to reset connections to |
+| `ojp.xa.connection.pool.defaultTransactionIsolation` | string/int | READ_COMMITTED | Transaction isolation level for XA connections |
 
 #### Valid Values
 
@@ -185,9 +185,9 @@ Configure a custom isolation level when:
 
 #### How It Works
 
-1. **Auto-detection (default)**: OJP queries the database for its default isolation level during datasource creation
-2. **Configured**: When set, OJP uses the specified isolation level without auto-detection
-3. **Connection Reset**: When connections return to the pool, they are automatically reset to the configured/detected isolation level
+1. **Default (READ_COMMITTED)**: OJP uses READ_COMMITTED isolation level by default for all connections
+2. **Configured**: When set, OJP uses the specified isolation level instead of the default
+3. **Connection Reset**: When connections return to the pool, they are automatically reset to the configured isolation level (or READ_COMMITTED if not configured)
 4. **Optimization**: The connection pool only resets isolation if it was actually changed during the session
 
 **Note**: See `documents/analysis/TRANSACTION_ISOLATION_HANDLING.md` for complete technical documentation.
