@@ -1,0 +1,197 @@
+package org.openjproxy.grpc.server.action;
+
+import org.openjproxy.grpc.server.*;
+import org.openjproxy.xa.pool.XATransactionRegistry;
+import org.openjproxy.xa.pool.spi.XAConnectionPoolProvider;
+import com.openjproxy.grpc.DbName;
+
+import javax.sql.DataSource;
+import javax.sql.XADataSource;
+import java.util.Map;
+
+/**
+ * ActionContext holds all shared state and dependencies needed by Action classes.
+ * This context is created once in StatementServiceImpl and passed to all actions.
+ * 
+ * Thread Safety: This class is thread-safe. All maps are ConcurrentHashMap.
+ * Actions should not modify the context itself, only the data within the maps.
+ */
+public class ActionContext {
+    
+    // ========== Data Source Management ==========
+    
+    /**
+     * Map of connection hash to regular DataSource (HikariCP by default).
+     * Key: connection hash (from ConnectionHashGenerator)
+     * Value: pooled DataSource for regular (non-XA) connections
+     */
+    private final Map<String, DataSource> datasourceMap;
+    
+    /**
+     * Map of connection hash to unpooled XADataSource.
+     * Used when XA pooling is disabled (ojp.xa.connection.pool.enabled=false).
+     * Key: connection hash
+     * Value: native database XADataSource (not pooled)
+     */
+    private final Map<String, XADataSource> xaDataSourceMap;
+    
+    /**
+     * Map of connection hash to XATransactionRegistry.
+     * Used when XA pooling is enabled (default).
+     * Key: connection hash
+     * Value: registry managing pooled XA connections and transactions
+     */
+    private final Map<String, XATransactionRegistry> xaRegistries;
+    
+    /**
+     * Map of connection hash to unpooled connection details.
+     * Used when regular pooling is disabled (ojp.connection.pool.enabled=false).
+     * Key: connection hash
+     * Value: connection details for creating direct JDBC connections
+     */
+    private final Map<String, StatementServiceImpl.UnpooledConnectionDetails> unpooledConnectionDetailsMap;
+    
+    /**
+     * Map of connection hash to database type.
+     * Used for database-specific behavior (e.g., DB2 LOB handling).
+     * Key: connection hash
+     * Value: DbName enum (POSTGRES, ORACLE, MYSQL, etc.)
+     */
+    private final Map<String, DbName> dbNameMap;
+    
+    // ========== Query Management ==========
+    
+    /**
+     * Map of connection hash to SlowQuerySegregationManager.
+     * Each datasource gets its own manager for segregating slow/fast queries.
+     * Key: connection hash
+     * Value: manager for this datasource's slow query segregation
+     */
+    private final Map<String, SlowQuerySegregationManager> slowQuerySegregationManagers;
+    
+    // ========== XA Pool Provider ==========
+    
+    /**
+     * XA Connection Pool Provider loaded via SPI.
+     * Used for creating and managing pooled XA connections.
+     * Mutable because it's initialized after construction.
+     */
+    private XAConnectionPoolProvider xaPoolProvider;
+    
+    // ========== Coordinators & Trackers ==========
+    
+    /**
+     * Multinode XA coordinator for distributing transaction limits across nodes.
+     * Static in original class, shared across all instances.
+     */
+    private final MultinodeXaCoordinator xaCoordinator;
+    
+    /**
+     * Cluster health tracker for monitoring health changes and triggering rebalancing.
+     */
+    private final ClusterHealthTracker clusterHealthTracker;
+    
+    // ========== Service Dependencies ==========
+    
+    /**
+     * Session manager for managing JDBC sessions, connections, and resources.
+     * Thread-safe, shared across all actions.
+     */
+    private final SessionManager sessionManager;
+    
+    /**
+     * Circuit breaker for protecting against cascading failures.
+     * Thread-safe, shared across all actions.
+     */
+    private final CircuitBreaker circuitBreaker;
+    
+    /**
+     * Server-wide configuration.
+     * Immutable after construction.
+     */
+    private final ServerConfiguration serverConfiguration;
+    
+    // ========== Constructor ==========
+    
+    public ActionContext(
+            Map<String, DataSource> datasourceMap,
+            Map<String, XADataSource> xaDataSourceMap,
+            Map<String, XATransactionRegistry> xaRegistries,
+            Map<String, StatementServiceImpl.UnpooledConnectionDetails> unpooledConnectionDetailsMap,
+            Map<String, DbName> dbNameMap,
+            Map<String, SlowQuerySegregationManager> slowQuerySegregationManagers,
+            XAConnectionPoolProvider xaPoolProvider,
+            MultinodeXaCoordinator xaCoordinator,
+            ClusterHealthTracker clusterHealthTracker,
+            SessionManager sessionManager,
+            CircuitBreaker circuitBreaker,
+            ServerConfiguration serverConfiguration) {
+        
+        this.datasourceMap = datasourceMap;
+        this.xaDataSourceMap = xaDataSourceMap;
+        this.xaRegistries = xaRegistries;
+        this.unpooledConnectionDetailsMap = unpooledConnectionDetailsMap;
+        this.dbNameMap = dbNameMap;
+        this.slowQuerySegregationManagers = slowQuerySegregationManagers;
+        this.xaPoolProvider = xaPoolProvider;
+        this.xaCoordinator = xaCoordinator;
+        this.clusterHealthTracker = clusterHealthTracker;
+        this.sessionManager = sessionManager;
+        this.circuitBreaker = circuitBreaker;
+        this.serverConfiguration = serverConfiguration;
+    }
+    
+    // ========== Getters ==========
+    
+    public Map<String, DataSource> getDatasourceMap() {
+        return datasourceMap;
+    }
+    
+    public Map<String, XADataSource> getXaDataSourceMap() {
+        return xaDataSourceMap;
+    }
+    
+    public Map<String, XATransactionRegistry> getXaRegistries() {
+        return xaRegistries;
+    }
+    
+    public Map<String, StatementServiceImpl.UnpooledConnectionDetails> getUnpooledConnectionDetailsMap() {
+        return unpooledConnectionDetailsMap;
+    }
+    
+    public Map<String, DbName> getDbNameMap() {
+        return dbNameMap;
+    }
+    
+    public Map<String, SlowQuerySegregationManager> getSlowQuerySegregationManagers() {
+        return slowQuerySegregationManagers;
+    }
+    
+    public XAConnectionPoolProvider getXaPoolProvider() {
+        return xaPoolProvider;
+    }
+    
+    public void setXaPoolProvider(XAConnectionPoolProvider xaPoolProvider) {
+        this.xaPoolProvider = xaPoolProvider;
+    }
+    
+    public MultinodeXaCoordinator getXaCoordinator() {
+        return xaCoordinator;
+    }
+    
+    public ClusterHealthTracker getClusterHealthTracker() {
+        return clusterHealthTracker;
+    }
+    
+    public SessionManager getSessionManager() {
+        return sessionManager;
+    }
+    
+    public CircuitBreaker getCircuitBreaker() {
+        return circuitBreaker;
+    }
+    
+    public ServerConfiguration getServerConfiguration() {
+        return serverConfiguration;
+    }
+}

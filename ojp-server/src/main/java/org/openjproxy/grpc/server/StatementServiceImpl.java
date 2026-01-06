@@ -150,11 +150,30 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
         DriverUtils.registerDrivers();
     }
 
+    // ActionContext for refactored actions
+    private final org.openjproxy.grpc.server.action.ActionContext actionContext;
+    
     public StatementServiceImpl(SessionManager sessionManager, CircuitBreaker circuitBreaker, ServerConfiguration serverConfiguration) {
         this.sessionManager = sessionManager;
         this.circuitBreaker = circuitBreaker;
         this.serverConfiguration = serverConfiguration;
         initializeXAPoolProvider();
+        
+        // Initialize ActionContext with all shared state
+        this.actionContext = new org.openjproxy.grpc.server.action.ActionContext(
+            datasourceMap,
+            xaDataSourceMap,
+            xaRegistries,
+            unpooledConnectionDetailsMap,
+            dbNameMap,
+            slowQuerySegregationManagers,
+            xaPoolProvider,
+            xaCoordinator,
+            clusterHealthTracker,
+            sessionManager,
+            circuitBreaker,
+            serverConfiguration
+        );
     }
 
     /**
@@ -186,6 +205,11 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
                 this.xaPoolProvider = selectedProvider;
                 log.info("Selected XA Pool Provider: {} (priority: {})", 
                         selectedProvider.getClass().getName(), selectedProvider.getPriority());
+                
+                // Update ActionContext with initialized provider (if actionContext is already created)
+                if (this.actionContext != null) {
+                    this.actionContext.setXaPoolProvider(selectedProvider);
+                }
             } else {
                 log.warn("No available XA Pool Provider found via ServiceLoader, XA pooling will be unavailable");
             }
@@ -286,148 +310,8 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
 
     @Override
     public void connect(ConnectionDetails connectionDetails, StreamObserver<SessionInfo> responseObserver) {
-        if (StringUtils.isBlank(connectionDetails.getUrl()) &&
-            StringUtils.isBlank(connectionDetails.getUser()) &&
-            StringUtils.isBlank(connectionDetails.getPassword())) {
-            // Empty connection details - return empty session info - used for initial health checks only
-            responseObserver.onNext(SessionInfo.newBuilder().build());
-            responseObserver.onCompleted();
-            return;
-        }
-
-        String connHash = ConnectionHashGenerator.hashConnectionDetails(connectionDetails);
-
-        // Use default XA configuration values (deprecated pass-through properties no longer supported)
-        int maxXaTransactions = org.openjproxy.constants.CommonConstants.DEFAULT_MAX_XA_TRANSACTIONS;
-        long xaStartTimeoutMillis = org.openjproxy.constants.CommonConstants.DEFAULT_XA_START_TIMEOUT_MILLIS;
-        
-        log.info("connect connHash = {}, isXA = {}, maxXaTransactions = {}, xaStartTimeout = {}ms", 
-                connHash, connectionDetails.getIsXA(), maxXaTransactions, xaStartTimeoutMillis);
-
-        // Check if this is an XA connection request
-        if (connectionDetails.getIsXA()) {
-            // Check if multinode configuration is present for XA coordination
-            List<String> serverEndpoints = connectionDetails.getServerEndpointsList();
-            int actualMaxXaTransactions = maxXaTransactions;
-            
-            if (serverEndpoints != null && !serverEndpoints.isEmpty()) {
-                // Multinode: calculate divided XA transaction limits
-                MultinodeXaCoordinator.XaAllocation xaAllocation = 
-                        xaCoordinator.calculateXaLimits(connHash, maxXaTransactions, serverEndpoints);
-                
-                actualMaxXaTransactions = xaAllocation.getCurrentMaxTransactions();
-                
-                log.info("Multinode XA coordination enabled for {}: {} servers, divided max transactions: {}", 
-                        connHash, serverEndpoints.size(), actualMaxXaTransactions);
-            }
-            
-            // Branch based on XA pooling configuration
-            // XA Pool Provider SPI (always enabled)
-            if (xaPoolProvider != null) {
-                handleXAConnectionWithPooling(connectionDetails, connHash, actualMaxXaTransactions, 
-                        xaStartTimeoutMillis, responseObserver);
-            } else {
-                log.error("XA Pool Provider not initialized");
-                responseObserver.onError(Status.INTERNAL
-                        .withDescription("XA Pool Provider not available")
-                        .asRuntimeException());
-            }
-            return;
-        }
-        
-        // Handle non-XA connection - check if pooling is enabled
-        DataSource ds = this.datasourceMap.get(connHash);
-        UnpooledConnectionDetails unpooledDetails = this.unpooledConnectionDetailsMap.get(connHash);
-        
-        if (ds == null && unpooledDetails == null) {
-            try {
-                // Get datasource-specific configuration from client properties
-                Properties clientProperties = ConnectionPoolConfigurer.extractClientProperties(connectionDetails);
-                DataSourceConfigurationManager.DataSourceConfiguration dsConfig = 
-                        DataSourceConfigurationManager.getConfiguration(clientProperties);
-                
-                // Check if pooling is enabled
-                if (!dsConfig.isPoolEnabled()) {
-                    // Unpooled mode: store connection details for direct connection creation
-                    unpooledDetails = UnpooledConnectionDetails.builder()
-                            .url(UrlParser.parseUrl(connectionDetails.getUrl()))
-                            .username(connectionDetails.getUser())
-                            .password(connectionDetails.getPassword())
-                            .connectionTimeout(dsConfig.getConnectionTimeout())
-                            .build();
-                    this.unpooledConnectionDetailsMap.put(connHash, unpooledDetails);
-                    
-                    log.info("Unpooled (passthrough) mode enabled for dataSource '{}' with connHash: {}", 
-                            dsConfig.getDataSourceName(), connHash);
-                } else {
-                    // Pooled mode: create datasource with Connection Pool SPI (HikariCP by default)
-                    // Get pool sizes - apply multinode coordination if needed
-                    int maxPoolSize = dsConfig.getMaximumPoolSize();
-                    int minIdle = dsConfig.getMinimumIdle();
-                    
-                    List<String> serverEndpoints = connectionDetails.getServerEndpointsList();
-                    if (serverEndpoints != null && !serverEndpoints.isEmpty()) {
-                        // Multinode: calculate divided pool sizes
-                        MultinodePoolCoordinator.PoolAllocation allocation = 
-                                ConnectionPoolConfigurer.getPoolCoordinator().calculatePoolSizes(
-                                        connHash, maxPoolSize, minIdle, serverEndpoints);
-                        
-                        maxPoolSize = allocation.getCurrentMaxPoolSize();
-                        minIdle = allocation.getCurrentMinIdle();
-                        
-                        log.info("Multinode pool coordination enabled for {}: {} servers, divided pool sizes: max={}, min={}", 
-                                connHash, serverEndpoints.size(), maxPoolSize, minIdle);
-                    }
-                    
-                    // Build PoolConfig from connection details and configuration
-                    PoolConfig poolConfig = PoolConfig.builder()
-                            .url(UrlParser.parseUrl(connectionDetails.getUrl()))
-                            .username(connectionDetails.getUser())
-                            .password(connectionDetails.getPassword())
-                            .maxPoolSize(maxPoolSize)
-                            .minIdle(minIdle)
-                            .connectionTimeoutMs(dsConfig.getConnectionTimeout())
-                            .idleTimeoutMs(dsConfig.getIdleTimeout())
-                            .maxLifetimeMs(dsConfig.getMaxLifetime())
-                            .metricsPrefix("OJP-Pool-" + dsConfig.getDataSourceName())
-                            .build();
-                    
-                    // Create DataSource using the SPI (HikariCP by default)
-                    ds = ConnectionPoolProviderRegistry.createDataSource(poolConfig);
-                    this.datasourceMap.put(connHash, ds);
-                    
-                    // Create a slow query segregation manager for this datasource
-                    createSlowQuerySegregationManagerForDatasource(connHash, maxPoolSize);
-                    
-                    log.info("Created new DataSource for dataSource '{}' with connHash: {} using provider: {}, maxPoolSize={}, minIdle={}", 
-                            dsConfig.getDataSourceName(), connHash, 
-                            ConnectionPoolProviderRegistry.getDefaultProvider().map(p -> p.id()).orElse("unknown"),
-                            maxPoolSize, minIdle);
-                }
-                
-            } catch (Exception e) {
-                log.error("Failed to create datasource for connection hash {}: {}", connHash, e.getMessage(), e);
-                SQLException sqlException = new SQLException("Failed to create datasource: " + e.getMessage(), e);
-                sendSQLExceptionMetadata(sqlException, responseObserver);
-                return;
-            }
-        }
-
-        this.sessionManager.registerClientUUID(connHash, connectionDetails.getClientUUID());
-
-        // For regular connections, just return session info without creating a session yet (lazy allocation)
-        // Server does not populate targetServer - client will set it on future requests
-        SessionInfo sessionInfo = SessionInfo.newBuilder()
-                .setConnHash(connHash)
-                .setClientUUID(connectionDetails.getClientUUID())
-                .setIsXA(false)
-                .build();
-
-        responseObserver.onNext(sessionInfo);
-
-        this.dbNameMap.put(connHash, DatabaseUtils.resolveDbName(connectionDetails.getUrl()));
-
-        responseObserver.onCompleted();
+        new org.openjproxy.grpc.server.action.connection.ConnectAction(actionContext)
+            .execute(connectionDetails, responseObserver);
     }
     
     /**
