@@ -216,32 +216,31 @@ public class BackendSessionImpl implements XABackendSession {
         log.debug("Sanitizing backend session after transaction: {}", sessionId);
         
         try {
-            // IMPORTANT: Reset transaction isolation BEFORE getting new connection handle
-            // The physical connection's state (including isolation) persists across getConnection() calls
-            // XAConnection.getConnection() returns a new handle to the SAME physical connection
-            if (defaultTransactionIsolation != null) {
-                try {
-                    int currentIsolation = connection.getTransactionIsolation();
-                    if (currentIsolation != defaultTransactionIsolation) {
-                        log.debug("Resetting transaction isolation to default {} before sanitization (was {})", 
-                                defaultTransactionIsolation, currentIsolation);
-                        connection.setTransactionIsolation(defaultTransactionIsolation);
-                    }
-                } catch (SQLException e) {
-                    log.warn("Error resetting transaction isolation before sanitization: {}", e.getMessage());
-                    // Don't throw - continue even if isolation reset fails
-                }
-            }
-            
             // Get a fresh logical connection from the XAConnection
             // According to JDBC spec, calling getConnection() on an XAConnection
             // automatically closes the previous logical connection and returns a new handle
             // to the SAME physical connection. This resets the XA state to IDLE in most drivers.
-            // The physical connection state (including isolation level we just set) is preserved.
             this.connection = xaConnection.getConnection();
             
             // The XAResource should remain the same (from the XAConnection)
             // No need to re-obtain it - it's tied to the XAConnection, not the logical connection
+            
+            // IMPORTANT: Reset transaction isolation AFTER getting the new connection handle
+            // The previous handle may have been in a post-transaction state where setTransactionIsolation
+            // doesn't properly propagate to the physical connection. The new handle is fresh and active.
+            if (defaultTransactionIsolation != null) {
+                try {
+                    int currentIsolation = connection.getTransactionIsolation();
+                    if (currentIsolation != defaultTransactionIsolation) {
+                        log.debug("Resetting transaction isolation to default {} after sanitization (was {})", 
+                                defaultTransactionIsolation, currentIsolation);
+                        connection.setTransactionIsolation(defaultTransactionIsolation);
+                    }
+                } catch (SQLException e) {
+                    log.warn("Error resetting transaction isolation after sanitization: {}", e.getMessage());
+                    // Don't throw - continue even if isolation reset fails
+                }
+            }
             
             // Clear warnings on the new connection
             try {
