@@ -73,7 +73,7 @@ public class CommonsPool2XADataSource implements XADataSource {
         this.vendorXADataSource = vendorXADataSource;
         this.config = config;
         
-        // Get default transaction isolation from config (will default to READ_COMMITTED if not specified)
+        // Get default transaction isolation from config
         Integer defaultTransactionIsolation = getTransactionIsolationFromConfig(config);
         
         // Create the session factory with transaction isolation support
@@ -85,8 +85,13 @@ public class CommonsPool2XADataSource implements XADataSource {
         // Create the pool
         this.pool = new GenericObjectPool<>(factory, poolConfig);
         
-        log.info("CommonsPool2XADataSource created with maxTotal={}, minIdle={}, maxWaitMs={}, defaultTransactionIsolation={}",
-                poolConfig.getMaxTotal(), poolConfig.getMinIdle(), poolConfig.getMaxWaitDuration().toMillis(), defaultTransactionIsolation);
+        if (defaultTransactionIsolation != null) {
+            log.info("CommonsPool2XADataSource created with maxTotal={}, minIdle={}, maxWaitMs={}, defaultTransactionIsolation={}",
+                    poolConfig.getMaxTotal(), poolConfig.getMinIdle(), poolConfig.getMaxWaitDuration().toMillis(), defaultTransactionIsolation);
+        } else {
+            log.info("CommonsPool2XADataSource created with maxTotal={}, minIdle={}, maxWaitMs={}",
+                    poolConfig.getMaxTotal(), poolConfig.getMinIdle(), poolConfig.getMaxWaitDuration().toMillis());
+        }
     }
     
     /**
@@ -604,25 +609,14 @@ public class CommonsPool2XADataSource implements XADataSource {
     }
     
     /**
-     * Gets transaction isolation level from config or system property.
+     * Gets transaction isolation level from config.
      * Accepts integer values (0, 1, 2, 4, 8) or string names (READ_COMMITTED, etc.).
-     * Defaults to READ_COMMITTED if not specified.
-     * This method checks system properties first, then config, then defaults to READ_COMMITTED.
+     * Returns null if not specified.
      */
     private static Integer getTransactionIsolationFromConfig(Map<String, String> config) {
-        // First check system property (allows runtime override)
-        String systemValue = System.getProperty("ojp.xa.connection.pool.defaultTransactionIsolation");
-        
-        // Then check config map
-        String configValue = config.get("xa.defaultTransactionIsolation");
-        
-        // Use system property if present, otherwise config value
-        String value = (systemValue != null && !systemValue.trim().isEmpty()) ? systemValue : configValue;
-        
-        // If still no value, default to READ_COMMITTED
+        String value = config.get("xa.defaultTransactionIsolation");
         if (value == null || value.trim().isEmpty()) {
-            log.info("No transaction isolation configured, defaulting to READ_COMMITTED");
-            return java.sql.Connection.TRANSACTION_READ_COMMITTED;
+            return null;
         }
         
         value = value.trim();
@@ -647,8 +641,8 @@ public class CommonsPool2XADataSource implements XADataSource {
             default:
                 log.warn("Invalid transaction isolation value: {}. Valid values are: " +
                         "NONE, READ_UNCOMMITTED, READ_COMMITTED, REPEATABLE_READ, SERIALIZABLE. " +
-                        "Defaulting to READ_COMMITTED.", value);
-                return java.sql.Connection.TRANSACTION_READ_COMMITTED;
+                        "Isolation reset will not be configured.", value);
+                return null;
         }
     }
 }
