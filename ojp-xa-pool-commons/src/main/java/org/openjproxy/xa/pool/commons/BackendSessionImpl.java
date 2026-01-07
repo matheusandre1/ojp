@@ -76,6 +76,25 @@ public class BackendSessionImpl implements XABackendSession {
         this.connection = xaConnection.getConnection();
         this.xaResource = xaConnection.getXAResource();
         
+        // Set default transaction isolation if configured
+        // This is critical because xaConnection.getConnection() may return a Connection object
+        // whose isolation level needs to be explicitly set to the configured default
+        if (defaultTransactionIsolation != null) {
+            try {
+                int currentIsolation = connection.getTransactionIsolation();
+                if (currentIsolation != defaultTransactionIsolation) {
+                    log.debug("Setting transaction isolation from {} to default {} in open()", 
+                            currentIsolation, defaultTransactionIsolation);
+                    connection.setTransactionIsolation(defaultTransactionIsolation);
+                } else {
+                    log.debug("Transaction isolation already at default {} in open()", defaultTransactionIsolation);
+                }
+            } catch (SQLException e) {
+                log.error("Error setting default transaction isolation in open(): {}", e.getMessage());
+                throw e;
+            }
+        }
+        
         log.debug("Backend session opened");
     }
     
