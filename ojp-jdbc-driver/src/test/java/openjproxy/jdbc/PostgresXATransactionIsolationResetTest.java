@@ -80,6 +80,15 @@ public class PostgresXATransactionIsolationResetTest {
                 log.warn("Error closing XA connection 3: {}", e.getMessage());
             }
         }
+        
+        // Critical: Wait for server-side XA pool to process connection returns and passivate sessions
+        // This ensures backend sessions are fully returned to pool before next test starts
+        // Without this delay, tests can interfere with each other due to shared server-side XA pool
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /**
