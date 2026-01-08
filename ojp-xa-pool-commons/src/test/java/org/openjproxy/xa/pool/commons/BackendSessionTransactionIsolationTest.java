@@ -184,15 +184,20 @@ class BackendSessionTransactionIsolationTest {
             when(mockConnection.isClosed()).thenReturn(false);
             when(mockConnection.getAutoCommit()).thenReturn(false);
             
-            // Connection has different isolation
-            when(mockConnection.getTransactionIsolation()).thenReturn(Connection.TRANSACTION_SERIALIZABLE);
+            // Connection has different isolation from default (use READ_UNCOMMITTED if default is SERIALIZABLE, else SERIALIZABLE)
+            int currentIsolation = (defaultLevel == Connection.TRANSACTION_SERIALIZABLE) 
+                ? Connection.TRANSACTION_READ_UNCOMMITTED 
+                : Connection.TRANSACTION_SERIALIZABLE;
+            when(mockConnection.getTransactionIsolation()).thenReturn(currentIsolation);
             
             BackendSessionFactory factory = new BackendSessionFactory(mockXADataSource, defaultLevel);
             BackendSessionImpl session = (BackendSessionImpl) factory.makeObject().getObject();
             
             // Reset should set to default
             session.reset();
-            verify(mockConnection).setTransactionIsolation(defaultLevel);
+            // Verify that setTransactionIsolation was called with the default level
+            // Note: It will be called at least once in open() and once in reset()
+            verify(mockConnection, atLeast(2)).setTransactionIsolation(defaultLevel);
             
             // Clean up
             session.close();
@@ -211,8 +216,10 @@ class BackendSessionTransactionIsolationTest {
         when(mockConnection.isClosed()).thenReturn(false);
         when(mockConnection.getAutoCommit()).thenReturn(false);
         
-        // Simulate exception when getting isolation
-        when(mockConnection.getTransactionIsolation()).thenThrow(new SQLException("Connection closed"));
+        // First call returns a value (during open), subsequent calls throw exception (during reset)
+        when(mockConnection.getTransactionIsolation())
+            .thenReturn(Connection.TRANSACTION_READ_COMMITTED)  // First call in open()
+            .thenThrow(new SQLException("Connection closed"));  // Second call in reset()
         
         BackendSessionFactory factory = new BackendSessionFactory(
                 mockXADataSource,
@@ -221,7 +228,7 @@ class BackendSessionTransactionIsolationTest {
         
         BackendSessionImpl session = (BackendSessionImpl) factory.makeObject().getObject();
         
-        // Reset should not throw exception
+        // Reset should not throw exception (SQLException is caught and logged)
         assertDoesNotThrow(() -> session.reset());
         
         // Clean up
