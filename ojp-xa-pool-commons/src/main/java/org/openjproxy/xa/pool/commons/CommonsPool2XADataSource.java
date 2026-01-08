@@ -85,13 +85,8 @@ public class CommonsPool2XADataSource implements XADataSource {
         // Create the pool
         this.pool = new GenericObjectPool<>(factory, poolConfig);
         
-        if (defaultTransactionIsolation != null) {
-            log.info("CommonsPool2XADataSource created with maxTotal={}, minIdle={}, maxWaitMs={}, defaultTransactionIsolation={}",
-                    poolConfig.getMaxTotal(), poolConfig.getMinIdle(), poolConfig.getMaxWaitDuration().toMillis(), defaultTransactionIsolation);
-        } else {
-            log.info("CommonsPool2XADataSource created with maxTotal={}, minIdle={}, maxWaitMs={}",
-                    poolConfig.getMaxTotal(), poolConfig.getMinIdle(), poolConfig.getMaxWaitDuration().toMillis());
-        }
+        log.info("CommonsPool2XADataSource created with maxTotal={}, minIdle={}, maxWaitMs={}, defaultTransactionIsolation={}",
+                poolConfig.getMaxTotal(), poolConfig.getMinIdle(), poolConfig.getMaxWaitDuration().toMillis(), defaultTransactionIsolation);
     }
     
     /**
@@ -610,13 +605,15 @@ public class CommonsPool2XADataSource implements XADataSource {
     
     /**
      * Gets transaction isolation level from config.
-     * Accepts integer values (0, 1, 2, 4, 8) or string names (READ_COMMITTED, etc.).
-     * Returns null if not specified.
+     * Accepts string names (READ_COMMITTED, SERIALIZABLE, etc.).
+     * Returns READ_COMMITTED as the hardcoded default if not specified or invalid.
      */
     private static Integer getTransactionIsolationFromConfig(Map<String, String> config) {
         String value = config.get("xa.defaultTransactionIsolation");
         if (value == null || value.trim().isEmpty()) {
-            return null;
+            // Default to READ_COMMITTED for safety
+            log.info("No transaction isolation configured, using default: READ_COMMITTED");
+            return java.sql.Connection.TRANSACTION_READ_COMMITTED;
         }
         
         value = value.trim();
@@ -641,8 +638,8 @@ public class CommonsPool2XADataSource implements XADataSource {
             default:
                 log.warn("Invalid transaction isolation value: {}. Valid values are: " +
                         "NONE, READ_UNCOMMITTED, READ_COMMITTED, REPEATABLE_READ, SERIALIZABLE. " +
-                        "Isolation reset will not be configured.", value);
-                return null;
+                        "Using default: READ_COMMITTED", value);
+                return java.sql.Connection.TRANSACTION_READ_COMMITTED;
         }
     }
 }
