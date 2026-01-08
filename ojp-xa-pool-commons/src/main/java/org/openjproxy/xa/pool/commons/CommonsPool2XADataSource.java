@@ -3,7 +3,11 @@ package org.openjproxy.xa.pool.commons;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.openjproxy.xa.pool.XABackendSession;
+import org.openjproxy.xa.pool.commons.housekeeping.BorrowInfo;
 import org.openjproxy.xa.pool.commons.housekeeping.HousekeepingConfig;
+import org.openjproxy.xa.pool.commons.housekeeping.HousekeepingListener;
+import org.openjproxy.xa.pool.commons.housekeeping.LeakDetectionTask;
+import org.openjproxy.xa.pool.commons.housekeeping.LoggingHousekeepingListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,6 +19,10 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * XADataSource wrapper that pools {@link XABackendSession} instances using Apache Commons Pool 2.
@@ -57,6 +65,11 @@ public class CommonsPool2XADataSource implements XADataSource {
     private final GenericObjectPool<XABackendSession> pool;
     private final Map<String, String> config;
     private final HousekeepingConfig housekeepingConfig;
+    private final HousekeepingListener housekeepingListener;
+    
+    // Leak detection state
+    private final ConcurrentHashMap<XABackendSession, BorrowInfo> borrowedSessions;
+    private ScheduledExecutorService housekeepingExecutor;
     
     /**
      * Creates a new pooled XADataSource.
@@ -78,6 +91,12 @@ public class CommonsPool2XADataSource implements XADataSource {
         // Parse housekeeping configuration
         this.housekeepingConfig = HousekeepingConfig.parseFromProperties(config);
         
+        // Create housekeeping listener
+        this.housekeepingListener = new LoggingHousekeepingListener();
+        
+        // Initialize leak detection tracking
+        this.borrowedSessions = new ConcurrentHashMap<>();
+        
         // Get default transaction isolation from config
         Integer defaultTransactionIsolation = getTransactionIsolationFromConfig(config);
         
@@ -89,6 +108,9 @@ public class CommonsPool2XADataSource implements XADataSource {
         
         // Create the pool
         this.pool = new GenericObjectPool<>(factory, poolConfig);
+        
+        // Initialize housekeeping features
+        initializeHousekeeping();
         
         log.info("CommonsPool2XADataSource created with maxTotal={}, minIdle={}, maxWaitMs={}, defaultTransactionIsolation={}, housekeeping=enabled(leak={}, maxLifetime={}ms)",
                 poolConfig.getMaxTotal(), poolConfig.getMinIdle(), poolConfig.getMaxWaitDuration().toMillis(), 
@@ -113,6 +135,19 @@ public class CommonsPool2XADataSource implements XADataSource {
         
         try {
             XABackendSession session = pool.borrowObject();
+            
+            // Track borrow for leak detection
+            if (housekeepingConfig.isLeakDetectionEnabled()) {
+                boolean captureStackTrace = housekeepingConfig.isEnhancedLeakReport();
+                if (session instanceof BackendSessionImpl) {
+                    ((BackendSessionImpl) session).onBorrow(captureStackTrace);
+                }
+                borrowedSessions.put(session, new BorrowInfo(
+                    System.nanoTime(),
+                    Thread.currentThread(),
+                    captureStackTrace ? Thread.currentThread().getStackTrace() : null
+                ));
+            }
             
             log.info("[XA-POOL-BORROW] Session borrowed successfully (state AFTER: active={}, idle={}, maxTotal={})",
                     pool.getNumActive(), pool.getNumIdle(), pool.getMaxTotal());
@@ -150,6 +185,14 @@ public class CommonsPool2XADataSource implements XADataSource {
         if (session == null) {
             log.debug("[XA-POOL-RETURN] Skipping return of null session");
             return;
+        }
+        
+        // Remove from leak tracking
+        if (housekeepingConfig.isLeakDetectionEnabled()) {
+            borrowedSessions.remove(session);
+            if (session instanceof BackendSessionImpl) {
+                ((BackendSessionImpl) session).onReturn();
+            }
         }
         
         log.debug("[XA-POOL-RETURN] Attempting to return session to pool (state BEFORE: active={}, idle={}, maxTotal={}, minIdle={})",
@@ -482,6 +525,46 @@ public class CommonsPool2XADataSource implements XADataSource {
     }
     
     /**
+     * Initializes housekeeping features (leak detection, diagnostics).
+     * <p>
+     * This method sets up scheduled tasks for leak detection if enabled.
+     * </p>
+     */
+    private void initializeHousekeeping() {
+        if (housekeepingConfig.isLeakDetectionEnabled()) {
+            log.info("Initializing leak detection with timeout={}ms, interval={}ms, enhanced={}",
+                housekeepingConfig.getLeakTimeoutMs(),
+                housekeepingConfig.getLeakCheckIntervalMs(),
+                housekeepingConfig.isEnhancedLeakReport());
+            
+            // Create daemon thread executor for housekeeping tasks
+            housekeepingExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "ojp-xa-housekeeping");
+                t.setDaemon(true);
+                return t;
+            });
+            
+            // Schedule leak detection task
+            LeakDetectionTask leakTask = new LeakDetectionTask(
+                borrowedSessions,
+                housekeepingConfig.getLeakTimeoutMs() * 1_000_000L,  // Convert ms to nanos
+                housekeepingListener
+            );
+            
+            housekeepingExecutor.scheduleAtFixedRate(
+                leakTask,
+                housekeepingConfig.getLeakCheckIntervalMs(),
+                housekeepingConfig.getLeakCheckIntervalMs(),
+                TimeUnit.MILLISECONDS
+            );
+            
+            log.info("Leak detection initialized and scheduled");
+        } else {
+            log.info("Leak detection is disabled");
+        }
+    }
+    
+    /**
      * Closes the pool and releases all resources.
      * <p>
      * This will close all sessions (active and idle) and shut down the pool.
@@ -490,6 +573,22 @@ public class CommonsPool2XADataSource implements XADataSource {
     public void close() {
         log.info("Closing CommonsPool2XADataSource (active={}, idle={})",
                 pool.getNumActive(), pool.getNumIdle());
+        
+        // Shutdown housekeeping executor
+        if (housekeepingExecutor != null) {
+            log.info("Shutting down housekeeping executor");
+            housekeepingExecutor.shutdown();
+            try {
+                if (!housekeepingExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
+                    log.warn("Housekeeping executor did not terminate in time, forcing shutdown");
+                    housekeepingExecutor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                log.warn("Interrupted while waiting for housekeeping executor shutdown");
+                housekeepingExecutor.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
         
         pool.close();
         
