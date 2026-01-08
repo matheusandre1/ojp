@@ -126,10 +126,71 @@ Connection backgroundConn = DriverManager.getConnection(
 | `ojp.connection.pool.idleTimeout`     | long | 600000  | Maximum time (ms) a connection can sit idle (10 minutes) |
 | `ojp.connection.pool.maxLifetime`     | long | 1800000 | Maximum lifetime (ms) of a connection (30 minutes)       |
 | `ojp.connection.pool.connectionTimeout` | long | 10000   | Maximum time (ms) to wait for a connection (10 seconds)  |
+| `ojp.connection.pool.defaultTransactionIsolation` | string/int | READ_COMMITTED | Default transaction isolation level (see below) |
 
 **Note**: These properties can be used with or without a datasource name prefix. For example:
 - `ojp.connection.pool.maximumPoolSize=20` (default datasource)
 - `myApp.ojp.connection.pool.maximumPoolSize=50` (myApp datasource)
+
+### Transaction Isolation Configuration
+
+OJP automatically resets transaction isolation levels when connections are returned to the pool, preventing state pollution between different client sessions.
+
+#### Behavior
+
+By default, OJP uses **READ_COMMITTED** as the default transaction isolation level. You can override this by explicitly configuring a different isolation level.
+
+#### Configuration Property
+
+| Property                              | Type | Default | Description                                              |
+|---------------------------------------|------|---------|----------------------------------------------------------|
+| `ojp.connection.pool.defaultTransactionIsolation` | string/int | READ_COMMITTED | Transaction isolation level to reset connections to |
+| `ojp.xa.connection.pool.defaultTransactionIsolation` | string/int | READ_COMMITTED | Transaction isolation level for XA connections |
+
+#### Valid Values
+
+The property accepts multiple formats (case-insensitive):
+
+| String Name | Constant Name | Description |
+|-------------|---------------|-------------|
+| `NONE` | `TRANSACTION_NONE` | Transactions not supported |
+| `READ_UNCOMMITTED` | `TRANSACTION_READ_UNCOMMITTED` | Lowest isolation - dirty reads allowed |
+| `READ_COMMITTED` | `TRANSACTION_READ_COMMITTED` | Most common - prevents dirty reads |
+| `REPEATABLE_READ` | `TRANSACTION_REPEATABLE_READ` | Prevents non-repeatable reads |
+| `SERIALIZABLE` | `TRANSACTION_SERIALIZABLE` | Highest isolation - fully isolated |
+
+#### Configuration Examples
+
+```properties
+# Using string name (recommended - most readable)
+ojp.connection.pool.defaultTransactionIsolation=READ_COMMITTED
+
+# Using constant name
+ojp.connection.pool.defaultTransactionIsolation=TRANSACTION_SERIALIZABLE
+
+# For XA connections
+ojp.xa.connection.pool.defaultTransactionIsolation=SERIALIZABLE
+
+# Per-datasource configuration
+mainApp.ojp.connection.pool.defaultTransactionIsolation=SERIALIZABLE
+reporting.ojp.connection.pool.defaultTransactionIsolation=READ_COMMITTED
+```
+
+#### When to Configure
+
+Configure a custom isolation level when:
+- You want all connections to use a specific isolation level regardless of database default
+- Different applications sharing the same database need different isolation guarantees
+- You want to enforce a stricter or more relaxed isolation policy
+
+#### How It Works
+
+1. **Default (READ_COMMITTED)**: OJP uses READ_COMMITTED isolation level by default for all connections
+2. **Configured**: When set, OJP uses the specified isolation level instead of the default
+3. **Connection Reset**: When connections return to the pool, they are automatically reset to the configured isolation level (or READ_COMMITTED if not configured)
+4. **Optimization**: The connection pool only resets isolation if it was actually changed during the session
+
+**Note**: See `documents/analysis/TRANSACTION_ISOLATION_HANDLING.md` for complete technical documentation.
 
 ### Disabling Connection Pooling
 

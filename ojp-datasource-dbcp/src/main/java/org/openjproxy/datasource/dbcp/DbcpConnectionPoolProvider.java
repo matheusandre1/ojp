@@ -87,6 +87,12 @@ public class DbcpConnectionPoolProvider implements ConnectionPoolProvider {
         // Auto-commit
         dataSource.setDefaultAutoCommit(config.isAutoCommit());
 
+        // Transaction isolation - configure default level for connection reset
+        if (config.getDefaultTransactionIsolation() != null) {
+            dataSource.setDefaultTransactionIsolation(config.getDefaultTransactionIsolation());
+            log.info("Configured default transaction isolation: {}", config.getDefaultTransactionIsolation());
+        }
+
         // Connection properties
         for (Map.Entry<String, String> entry : config.getProperties().entrySet()) {
             dataSource.addConnectionProperty(entry.getKey(), entry.getValue());

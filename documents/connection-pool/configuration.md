@@ -67,7 +67,36 @@ batchJob.ojp.connection.pool.minimumIdle=1
 | `ojp.connection.pool.connectionTimeout` | Connection timeout (ms) | 10000 |
 | `ojp.connection.pool.idleTimeout` | Idle timeout (ms) | 600000 |
 | `ojp.connection.pool.maxLifetime` | Max connection lifetime (ms) | 1800000 |
+| `ojp.connection.pool.defaultTransactionIsolation` | Default transaction isolation level | READ_COMMITTED |
 | `ojp.datasource.name` | Logical datasource name | default |
+
+### Transaction Isolation Configuration
+
+The `defaultTransactionIsolation` property configures how connections are reset when returned to the pool:
+
+```properties
+# Default is READ_COMMITTED
+# No configuration needed unless you want a different isolation level
+
+# Explicit configuration (string names - recommended)
+ojp.connection.pool.defaultTransactionIsolation=READ_COMMITTED
+ojp.connection.pool.defaultTransactionIsolation=SERIALIZABLE
+
+# Using JDBC constant names
+ojp.connection.pool.defaultTransactionIsolation=TRANSACTION_READ_COMMITTED
+
+# For XA connections
+ojp.xa.connection.pool.defaultTransactionIsolation=SERIALIZABLE
+```
+
+**Supported Values:**
+- String names: `READ_COMMITTED`, `SERIALIZABLE`, `READ_UNCOMMITTED`, `REPEATABLE_READ`, `NONE`
+- JDBC constant names: `TRANSACTION_READ_COMMITTED`, `TRANSACTION_SERIALIZABLE`, etc.
+
+**Behavior:**
+- When configured: All connections reset to this isolation level when returned to pool
+- When not configured: Defaults to READ_COMMITTED for all connections
+- Optimization: Only resets if isolation level was actually changed during session
 
 ### Provider-Specific Properties
 

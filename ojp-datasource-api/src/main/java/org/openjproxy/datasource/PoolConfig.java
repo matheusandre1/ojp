@@ -47,6 +47,7 @@ public final class PoolConfig {
     // Validation and behavior settings
     private final String validationQuery;
     private final boolean autoCommit;
+    private final Integer defaultTransactionIsolation;
     
     // Additional properties
     private final Map<String, String> properties;
@@ -75,6 +76,7 @@ public final class PoolConfig {
         this.maxLifetimeMs = builder.maxLifetimeMs;
         this.validationQuery = builder.validationQuery;
         this.autoCommit = builder.autoCommit;
+        this.defaultTransactionIsolation = builder.defaultTransactionIsolation;
         this.properties = builder.properties != null 
             ? Collections.unmodifiableMap(new HashMap<>(builder.properties))
             : Collections.emptyMap();
@@ -215,6 +217,17 @@ public final class PoolConfig {
     }
 
     /**
+     * Gets the default transaction isolation level.
+     * This level will be restored when connections are returned to the pool.
+     * 
+     * @return the default transaction isolation level (e.g., Connection.TRANSACTION_READ_COMMITTED),
+     *         or null if not configured (pool will use database default)
+     */
+    public Integer getDefaultTransactionIsolation() {
+        return defaultTransactionIsolation;
+    }
+
+    /**
      * Gets the additional properties map.
      * 
      * @return an unmodifiable map of additional properties
@@ -256,6 +269,7 @@ public final class PoolConfig {
                 ", maxLifetimeMs=" + maxLifetimeMs +
                 ", validationQuery='" + validationQuery + '\'' +
                 ", autoCommit=" + autoCommit +
+                ", defaultTransactionIsolation=" + defaultTransactionIsolation +
                 ", metricsPrefix='" + metricsPrefix + '\'' +
                 ", properties=" + properties.keySet() +
                 '}';
@@ -277,6 +291,7 @@ public final class PoolConfig {
         private long maxLifetimeMs = DEFAULT_MAX_LIFETIME_MS;
         private String validationQuery;
         private boolean autoCommit = DEFAULT_AUTO_COMMIT;
+        private Integer defaultTransactionIsolation;
         private Map<String, String> properties;
         private String metricsPrefix;
 
@@ -451,6 +466,22 @@ public final class PoolConfig {
          */
         public Builder autoCommit(boolean autoCommit) {
             this.autoCommit = autoCommit;
+            return this;
+        }
+
+        /**
+         * Sets the default transaction isolation level.
+         * When set, the connection pool will reset connections to this isolation level
+         * when they are returned to the pool, preventing transaction isolation state
+         * pollution between clients.
+         * 
+         * @param defaultTransactionIsolation the transaction isolation level
+         *        (e.g., Connection.TRANSACTION_READ_COMMITTED, Connection.TRANSACTION_SERIALIZABLE),
+         *        or null to use database default
+         * @return this builder
+         */
+        public Builder defaultTransactionIsolation(Integer defaultTransactionIsolation) {
+            this.defaultTransactionIsolation = defaultTransactionIsolation;
             return this;
         }
 

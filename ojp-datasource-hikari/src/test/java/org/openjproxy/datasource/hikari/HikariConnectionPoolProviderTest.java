@@ -313,4 +313,106 @@ class HikariConnectionPoolProviderTest {
         
         assertTrue(hikariDs.getPoolName().startsWith("myapp.orders"));
     }
+    
+    @Test
+    @DisplayName("Transaction isolation should be configured when specified")
+    void testTransactionIsolationConfiguration() throws SQLException {
+        PoolConfig config = PoolConfig.builder()
+                .url("jdbc:h2:mem:isolationtest;DB_CLOSE_DELAY=-1")
+                .username("sa")
+                .password("")
+                .defaultTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED)
+                .build();
+        
+        createdDataSource = provider.createDataSource(config);
+        HikariDataSource hikariDs = (HikariDataSource) createdDataSource;
+        
+        // Verify transaction isolation is configured
+        assertEquals("TRANSACTION_READ_COMMITTED", hikariDs.getTransactionIsolation());
+    }
+    
+    @Test
+    @DisplayName("Transaction isolation should reset when connection returns to pool")
+    void testTransactionIsolationResetOnConnectionReturn() throws SQLException {
+        PoolConfig config = PoolConfig.builder()
+                .url("jdbc:h2:mem:isolationresettest;DB_CLOSE_DELAY=-1")
+                .username("sa")
+                .password("")
+                .maxPoolSize(1) // Single connection to ensure same physical connection
+                .minIdle(1)
+                .defaultTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED)
+                .build();
+        
+        createdDataSource = provider.createDataSource(config);
+        
+        // Get connection and verify default isolation
+        Connection conn1 = createdDataSource.getConnection();
+        assertEquals(Connection.TRANSACTION_READ_COMMITTED, conn1.getTransactionIsolation());
+        
+        // Client changes transaction isolation
+        conn1.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+        assertEquals(Connection.TRANSACTION_SERIALIZABLE, conn1.getTransactionIsolation());
+        
+        // Return connection to pool
+        conn1.close();
+        
+        // Small delay to ensure connection processing
+        try {
+            Thread.sleep(50);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        
+        // Get connection again - should be reset to default
+        Connection conn2 = createdDataSource.getConnection();
+        assertEquals(Connection.TRANSACTION_READ_COMMITTED, conn2.getTransactionIsolation(),
+                "Transaction isolation should be reset to default when connection returns to pool");
+        
+        conn2.close();
+    }
+    
+    @Test
+    @DisplayName("Null transaction isolation should not configure isolation reset")
+    void testNullTransactionIsolation() throws SQLException {
+        PoolConfig config = PoolConfig.builder()
+                .url("jdbc:h2:mem:nullisolationtest;DB_CLOSE_DELAY=-1")
+                .username("sa")
+                .password("")
+                .build(); // No defaultTransactionIsolation set
+        
+        createdDataSource = provider.createDataSource(config);
+        HikariDataSource hikariDs = (HikariDataSource) createdDataSource;
+        
+        // When not configured, HikariCP should not set transaction isolation
+        assertNull(hikariDs.getTransactionIsolation());
+    }
+    
+    @Test
+    @DisplayName("All transaction isolation levels should be mappable")
+    void testAllTransactionIsolationLevels() throws Exception {
+        int[] isolationLevels = {
+            Connection.TRANSACTION_READ_UNCOMMITTED,
+            Connection.TRANSACTION_READ_COMMITTED,
+            Connection.TRANSACTION_REPEATABLE_READ,
+            Connection.TRANSACTION_SERIALIZABLE
+        };
+        
+        for (int level : isolationLevels) {
+            PoolConfig config = PoolConfig.builder()
+                    .url("jdbc:h2:mem:isolation" + level + ";DB_CLOSE_DELAY=-1")
+                    .username("sa")
+                    .password("")
+                    .defaultTransactionIsolation(level)
+                    .build();
+            
+            DataSource ds = provider.createDataSource(config);
+            assertNotNull(ds);
+            
+            // Verify configuration worked without exceptions
+            HikariDataSource hikariDs = (HikariDataSource) ds;
+            assertNotNull(hikariDs.getTransactionIsolation());
+            
+            provider.closeDataSource(ds);
+        }
+    }
 }

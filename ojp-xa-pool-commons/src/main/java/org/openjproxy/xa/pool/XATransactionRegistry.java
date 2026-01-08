@@ -7,8 +7,10 @@ import org.slf4j.LoggerFactory;
 import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -655,6 +657,7 @@ public class XATransactionRegistry {
                 ojpSessionId, contexts.size());
         int returnedCount = 0;
         List<XidKey> toRemove = new ArrayList<>();
+        Set<XABackendSession> returnedSessions = new HashSet<>();  // Track sessions already returned
         
         // Find all completed transactions belonging to the specified OJP session and return their sessions
         for (Map.Entry<XidKey, TxContext> entry : contexts.entrySet()) {
@@ -668,21 +671,27 @@ public class XATransactionRegistry {
             if (ctx.isTransactionComplete() && ojpSessionId.equals(ctx.getOjpSessionId())) {
                 toRemove.add(xidKey);
                 
-                // Return session to pool
+                // Return session to pool (but only once per unique session object)
                 XABackendSession session = ctx.getSession();
                 if (session != null) {
-                    try {
-                        log.info("[XA-POOL-RETURN] BEFORE return: Returning backend session for xid={}, ojpSessionId={}", xidKey, ojpSessionId);
-                        poolProvider.returnSession(poolDataSource, session);
-                        returnedCount++;
-                        log.info("[XA-POOL-RETURN] AFTER return: Successfully returned backend session for xid={}, ojpSessionId={}", xidKey, ojpSessionId);
-                    } catch (Exception e) {
-                        log.error("[XA-POOL-RETURN] Failed to return session to pool for xid={}: {}", xidKey, e.getMessage(), e);
-                        // Best effort: try to invalidate
+                    // Check if we've already returned this exact session object
+                    if (returnedSessions.contains(session)) {
+                        log.debug("[XA-POOL-RETURN] SKIP: Backend session already returned for xid={}, ojpSessionId={}", xidKey, ojpSessionId);
+                    } else {
                         try {
-                            poolProvider.invalidateSession(poolDataSource, session);
-                        } catch (Exception e2) {
-                            log.error("Failed to invalidate session for xid={}", xidKey, e2);
+                            log.info("[XA-POOL-RETURN] BEFORE return: Returning backend session for xid={}, ojpSessionId={}", xidKey, ojpSessionId);
+                            poolProvider.returnSession(poolDataSource, session);
+                            returnedSessions.add(session);  // Mark as returned
+                            returnedCount++;
+                            log.info("[XA-POOL-RETURN] AFTER return: Successfully returned backend session for xid={}, ojpSessionId={}", xidKey, ojpSessionId);
+                        } catch (Exception e) {
+                            log.error("[XA-POOL-RETURN] Failed to return session to pool for xid={}: {}", xidKey, e.getMessage(), e);
+                            // Best effort: try to invalidate
+                            try {
+                                poolProvider.invalidateSession(poolDataSource, session);
+                            } catch (Exception e2) {
+                                log.error("Failed to invalidate session for xid={}", xidKey, e2);
+                            }
                         }
                     }
                 } else {

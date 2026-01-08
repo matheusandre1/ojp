@@ -90,6 +90,14 @@ public class HikariConnectionPoolProvider implements ConnectionPoolProvider {
         // Auto-commit
         hikariConfig.setAutoCommit(config.isAutoCommit());
 
+        // Transaction isolation - configure default level for connection reset
+        if (config.getDefaultTransactionIsolation() != null) {
+            String isolationLevel = mapTransactionIsolationToString(config.getDefaultTransactionIsolation());
+            hikariConfig.setTransactionIsolation(isolationLevel);
+            log.info("Configured default transaction isolation: {} ({})", 
+                    isolationLevel, config.getDefaultTransactionIsolation());
+        }
+
         // Pool name for monitoring
         String poolName = config.getMetricsPrefix() != null 
                 ? config.getMetricsPrefix() + "-hikari" 
@@ -174,6 +182,30 @@ public class HikariConnectionPoolProvider implements ConnectionPoolProvider {
             return true;
         } catch (ClassNotFoundException e) {
             return false;
+        }
+    }
+    
+    /**
+     * Maps JDBC transaction isolation level constant to HikariCP string format.
+     * HikariCP expects transaction isolation levels as strings like "TRANSACTION_READ_COMMITTED".
+     * 
+     * @param isolationLevel JDBC constant (e.g., Connection.TRANSACTION_READ_COMMITTED)
+     * @return HikariCP string format (e.g., "TRANSACTION_READ_COMMITTED")
+     */
+    private static String mapTransactionIsolationToString(int isolationLevel) {
+        switch (isolationLevel) {
+            case java.sql.Connection.TRANSACTION_NONE: 
+                return "TRANSACTION_NONE";
+            case java.sql.Connection.TRANSACTION_READ_UNCOMMITTED: 
+                return "TRANSACTION_READ_UNCOMMITTED";
+            case java.sql.Connection.TRANSACTION_READ_COMMITTED: 
+                return "TRANSACTION_READ_COMMITTED";
+            case java.sql.Connection.TRANSACTION_REPEATABLE_READ: 
+                return "TRANSACTION_REPEATABLE_READ";
+            case java.sql.Connection.TRANSACTION_SERIALIZABLE: 
+                return "TRANSACTION_SERIALIZABLE";
+            default: 
+                throw new IllegalArgumentException("Unknown transaction isolation level: " + isolationLevel);
         }
     }
 }

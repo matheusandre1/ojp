@@ -35,6 +35,7 @@ import org.apache.commons.io.input.ReaderInputStream;
 import org.apache.commons.lang3.StringUtils;
 import org.openjproxy.constants.CommonConstants;
 import org.openjproxy.database.DatabaseUtils;
+import org.openjproxy.datasource.ConnectionPoolProvider;
 import org.openjproxy.datasource.ConnectionPoolProviderRegistry;
 import org.openjproxy.datasource.PoolConfig;
 import org.openjproxy.grpc.ProtoConverter;
@@ -464,6 +465,19 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
                 xaPoolConfig.put("xa.timeBetweenEvictionRunsMs", String.valueOf(xaConfig.getTimeBetweenEvictionRuns()));
                 xaPoolConfig.put("xa.numTestsPerEvictionRun", String.valueOf(xaConfig.getNumTestsPerEvictionRun()));
                 xaPoolConfig.put("xa.softMinEvictableIdleTimeMs", String.valueOf(xaConfig.getSoftMinEvictableIdleTime()));
+                
+                // Transaction isolation configuration - use configured or default to READ_COMMITTED
+                Integer configuredTransactionIsolation = xaConfig.getDefaultTransactionIsolation();
+                Integer defaultTransactionIsolation = configuredTransactionIsolation != null 
+                        ? configuredTransactionIsolation 
+                        : java.sql.Connection.TRANSACTION_READ_COMMITTED;
+                
+                xaPoolConfig.put("xa.defaultTransactionIsolation", String.valueOf(defaultTransactionIsolation));
+                if (configuredTransactionIsolation == null) {
+                    log.info("No transaction isolation configured for XA pool {}, using default READ_COMMITTED", connHash);
+                } else {
+                    log.info("Using configured transaction isolation for XA pool {}: {}", connHash, configuredTransactionIsolation);
+                }
                 
                 // Create pooled XA DataSource via provider
                 log.info("[XA-POOL-CREATE] Creating XA pool for connHash={}, serverEndpointsHash={}, config=(max={}, min={})",

@@ -38,6 +38,7 @@ public class BackendSessionFactory implements PooledObjectFactory<XABackendSessi
     private static final Logger log = LoggerFactory.getLogger(BackendSessionFactory.class);
     
     private final XADataSource xaDataSource;
+    private final Integer defaultTransactionIsolation;
     
     /**
      * Creates a new backend session factory.
@@ -45,10 +46,21 @@ public class BackendSessionFactory implements PooledObjectFactory<XABackendSessi
      * @param xaDataSource the XA data source to create connections from
      */
     public BackendSessionFactory(XADataSource xaDataSource) {
+        this(xaDataSource, null);
+    }
+    
+    /**
+     * Creates a new backend session factory with transaction isolation reset support.
+     *
+     * @param xaDataSource the XA data source to create connections from
+     * @param defaultTransactionIsolation the default transaction isolation level to reset connections to, or null to not reset
+     */
+    public BackendSessionFactory(XADataSource xaDataSource, Integer defaultTransactionIsolation) {
         if (xaDataSource == null) {
             throw new IllegalArgumentException("xaDataSource cannot be null");
         }
         this.xaDataSource = xaDataSource;
+        this.defaultTransactionIsolation = defaultTransactionIsolation;
     }
     
     @Override
@@ -60,7 +72,7 @@ public class BackendSessionFactory implements PooledObjectFactory<XABackendSessi
             XAConnection xaConnection = xaDataSource.getXAConnection();
             
             // Wrap in our XABackendSession implementation
-            BackendSessionImpl session = new BackendSessionImpl(xaConnection);
+            BackendSessionImpl session = new BackendSessionImpl(xaConnection, defaultTransactionIsolation);
             
             // Open the session (obtains Connection and XAResource)
             session.open();

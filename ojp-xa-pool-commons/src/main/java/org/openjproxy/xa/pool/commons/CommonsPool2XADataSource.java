@@ -73,8 +73,11 @@ public class CommonsPool2XADataSource implements XADataSource {
         this.vendorXADataSource = vendorXADataSource;
         this.config = config;
         
-        // Create the session factory
-        BackendSessionFactory factory = new BackendSessionFactory(vendorXADataSource);
+        // Get default transaction isolation from config
+        Integer defaultTransactionIsolation = getTransactionIsolationFromConfig(config);
+        
+        // Create the session factory with transaction isolation support
+        BackendSessionFactory factory = new BackendSessionFactory(vendorXADataSource, defaultTransactionIsolation);
         
         // Configure the pool
         GenericObjectPoolConfig<XABackendSession> poolConfig = createPoolConfig(config);
@@ -82,8 +85,8 @@ public class CommonsPool2XADataSource implements XADataSource {
         // Create the pool
         this.pool = new GenericObjectPool<>(factory, poolConfig);
         
-        log.info("CommonsPool2XADataSource created with maxTotal={}, minIdle={}, maxWaitMs={}",
-                poolConfig.getMaxTotal(), poolConfig.getMinIdle(), poolConfig.getMaxWaitDuration().toMillis());
+        log.info("CommonsPool2XADataSource created with maxTotal={}, minIdle={}, maxWaitMs={}, defaultTransactionIsolation={}",
+                poolConfig.getMaxTotal(), poolConfig.getMinIdle(), poolConfig.getMaxWaitDuration().toMillis(), defaultTransactionIsolation);
     }
     
     /**
@@ -597,6 +600,46 @@ public class CommonsPool2XADataSource implements XADataSource {
         } catch (NumberFormatException e) {
             log.warn("Invalid long config for {}: {}, using default {}", key, value, defaultValue);
             return defaultValue;
+        }
+    }
+    
+    /**
+     * Gets transaction isolation level from config.
+     * Accepts string names (READ_COMMITTED, SERIALIZABLE, etc.).
+     * Returns READ_COMMITTED as the hardcoded default if not specified or invalid.
+     */
+    private static Integer getTransactionIsolationFromConfig(Map<String, String> config) {
+        String value = config.get("xa.defaultTransactionIsolation");
+        if (value == null || value.trim().isEmpty()) {
+            // Default to READ_COMMITTED for safety
+            log.info("No transaction isolation configured, using default: READ_COMMITTED");
+            return java.sql.Connection.TRANSACTION_READ_COMMITTED;
+        }
+        
+        value = value.trim();
+        
+        // Parse string names (case-insensitive)
+        switch (value.toUpperCase()) {
+            case "TRANSACTION_NONE":
+            case "NONE":
+                return java.sql.Connection.TRANSACTION_NONE;
+            case "TRANSACTION_READ_UNCOMMITTED":
+            case "READ_UNCOMMITTED":
+                return java.sql.Connection.TRANSACTION_READ_UNCOMMITTED;
+            case "TRANSACTION_READ_COMMITTED":
+            case "READ_COMMITTED":
+                return java.sql.Connection.TRANSACTION_READ_COMMITTED;
+            case "TRANSACTION_REPEATABLE_READ":
+            case "REPEATABLE_READ":
+                return java.sql.Connection.TRANSACTION_REPEATABLE_READ;
+            case "TRANSACTION_SERIALIZABLE":
+            case "SERIALIZABLE":
+                return java.sql.Connection.TRANSACTION_SERIALIZABLE;
+            default:
+                log.warn("Invalid transaction isolation value: {}. Valid values are: " +
+                        "NONE, READ_UNCOMMITTED, READ_COMMITTED, REPEATABLE_READ, SERIALIZABLE. " +
+                        "Using default: READ_COMMITTED", value);
+                return java.sql.Connection.TRANSACTION_READ_COMMITTED;
         }
     }
 }
