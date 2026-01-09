@@ -67,25 +67,7 @@ Check `ojp.properties`:
 ojp.sql.enhancer.enabled=true  # Must be true
 ```
 
-### Wrong Dialect
-
-Ensure correct dialect is set for your database.
-
-## Advanced Configuration
-
-### Per-Datasource
-
-```properties
-# Production - PostgreSQL
-production.ojp.sql.enhancer.enabled=true
-production.ojp.sql.enhancer.dialect=POSTGRESQL
-
-# Staging - MySQL
-staging.ojp.sql.enhancer.enabled=true
-staging.ojp.sql.enhancer.dialect=MYSQL
-```
-
-### Disable Feature
+## Disable Feature
 
 ```properties
 ojp.sql.enhancer.enabled=false
@@ -100,9 +82,15 @@ mvn test -Dtest=SqlEnhancerEngineTest
 
 **Result:** 15/15 tests passing ✅
 
+## Future Enhancements
+
+**Database-Specific Dialects:** Code is implemented for PostgreSQL, MySQL, Oracle, SQL Server, H2 dialects but configuration wiring will be added in a future update. Currently uses GENERIC (ANSI SQL) dialect which works with all databases.
+
+**Per-Datasource Configuration:** Will be added in future update.
+
 ## Documentation
 
-- **Technical Analysis:** `/documents/analysis/SQL_ENHANCER_ENGINE_ANALYSIS.md`
+- **Technical Analysis:** `/documents/analysis/SQL_ENHANCER_ENGINE_ANALYSIS.md` (1,500+ lines, 9 Mermaid diagrams)
 - **GitHub:** https://github.com/Open-J-Proxy/ojp
 - **Discord:** https://discord.gg/J5DdHpaUzu
 
