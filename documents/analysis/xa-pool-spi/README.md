@@ -11,6 +11,7 @@ The XA Connection Pool SPI (Service Provider Interface) provides a pluggable arc
 - **Universal Support**: Works with PostgreSQL, SQL Server, DB2, MySQL, MariaDB, Oracle
 - **XA Specification Compliant**: Full 2PC (Two-Phase Commit) protocol support
 - **Production Ready**: Complete state machine with proper error handling and resource management
+- **Housekeeping Features**: Built-in leak detection, max lifetime enforcement, and diagnostics (see [Housekeeping Guide](./XA_POOL_HOUSEKEEPING_README.md))
 
 ## Architecture
 
@@ -52,12 +53,17 @@ Return BackendSession to pool ← Pool Provider
 
 ## Documentation Structure
 
+### Core Documentation
 - **[Implementation Guide](./IMPLEMENTATION_GUIDE.md)** - How to implement a new XA pool provider
 - **[Oracle UCP Example](./ORACLE_UCP_EXAMPLE.md)** - Complete Oracle UCP provider implementation
 - **[Configuration Reference](./CONFIGURATION.md)** - Configuration options and defaults
 - **[API Reference](./API_REFERENCE.md)** - Complete API documentation
 - **[Migration Guide](./MIGRATION_GUIDE.md)** - Migrating from pass-through to pooled XA
 - **[Troubleshooting](./TROUBLESHOOTING.md)** - Common issues and solutions
+
+### Housekeeping Features
+- **[Housekeeping User Guide](./XA_POOL_HOUSEKEEPING_README.md)** - User-facing guide for leak detection, max lifetime, and diagnostics
+- **[Housekeeping Technical Guide](./XA_POOL_HOUSEKEEPING_GUIDE.md)** - Complete technical documentation with architecture diagrams
 
 ## Quick Start
 
