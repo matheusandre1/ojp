@@ -10,7 +10,7 @@
 An optional feature that validates and caches SQL queries using Apache Calcite, providing:
 - SQL syntax validation before execution
 - Fast query caching (70-90% hit rate, <1ms overhead)
-- Multi-database dialect support
+- ANSI SQL support (works with all databases)
 - Graceful error handling
 
 ## Quick Start
@@ -22,23 +22,13 @@ Edit `ojp.properties`:
 ```properties
 # Enable SQL enhancer
 ojp.sql.enhancer.enabled=true
-
-# Set your database dialect
-ojp.sql.enhancer.dialect=POSTGRESQL
 ```
 
 Restart OJP server.
 
-### Supported Dialects
+### Current Implementation
 
-| Value | Database |
-|-------|----------|
-| `POSTGRESQL` | PostgreSQL |
-| `MYSQL` | MySQL 5.x+ |
-| `ORACLE` | Oracle 12c+ |
-| `SQL_SERVER` | SQL Server 2008+ |
-| `H2` | H2 Database |
-| `GENERIC` | ANSI SQL (default) |
+**Dialect Support:** Currently uses ANSI SQL (GENERIC dialect) which works with all databases. Database-specific dialect support (PostgreSQL, MySQL, Oracle, etc.) is implemented in the code but not yet wired to configuration - this will be added in a future update.
 
 ## Performance
 
@@ -59,8 +49,8 @@ Once enabled, the feature works automatically:
 Check logs for activity:
 
 ```
-[INFO] SqlEnhancerEngine initialized (enabled=true, dialect=POSTGRESQL)
-[DEBUG] SQL parsed successfully
+[INFO] SQL Enhancer Engine initialized and enabled with dialect: GENERIC
+[DEBUG] SQL parsed successfully  
 [DEBUG] Cache hit for SQL: SELECT * FROM users
 ```
 
