@@ -1737,14 +1737,23 @@ Cache & Return
 
 #### Configuration
 
-Currently, optimization must be enabled programmatically. Future updates will add configuration properties:
+Optimization can now be configured via properties file or environment variables:
 
 ```properties
-# Planned for future release
+# SQL Optimization Settings
 ojp.sql.enhancer.optimization.enabled=false
-ojp.sql.enhancer.optimization.rules=FILTER_REDUCE,PROJECT_REDUCE,FILTER_MERGE
+ojp.sql.enhancer.optimization.rules=FILTER_REDUCE,PROJECT_REDUCE,FILTER_MERGE,PROJECT_MERGE,PROJECT_REMOVE
 ojp.sql.enhancer.optimization.timeout=100
+ojp.sql.enhancer.optimization.mode=heuristic
 ```
+
+**Configuration Options:**
+- `enabled` - Enable/disable query optimization (default: false)
+- `rules` - Comma-separated list of optimization rules (default: all safe rules)
+- `timeout` - Optimization timeout in milliseconds (default: 100ms)
+- `mode` - Optimization mode: `heuristic` or `cost-based` (default: heuristic)
+
+All properties support JVM system properties and environment variables (e.g., `OJP_SQL_ENHANCER_OPTIMIZATION_ENABLED=true`).
 
 #### Testing
 
