@@ -252,7 +252,7 @@ public class SqlEnhancerEngine {
                     long optimizationStartTime = System.currentTimeMillis();
                     
                     // Convert SQL → RelNode
-                    RelNode relNode = converter.convertToRelNode(sqlNode);
+                    RelNode relNode = converter.convertToRelNode(sql);
                     log.debug("Successfully converted SQL to RelNode");
                     
                     // Apply optimization if enabled
