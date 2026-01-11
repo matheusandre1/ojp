@@ -41,7 +41,7 @@ public class SqlEnhancerEngine {
     
     // Schema management
     private final SchemaCache schemaCache;
-    private final long schemaRefreshIntervalMillis;
+    private final long schemaRefreshIntervalMillis;  // TODO: Implement periodic schema refresh where DataSource is available
     
     // Metrics tracking - using AtomicLong for thread-safe updates without synchronization
     private final AtomicLong totalQueriesProcessed = new AtomicLong(0);

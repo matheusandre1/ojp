@@ -21,7 +21,7 @@ import java.util.concurrent.ForkJoinPool;
 public class SchemaLoader {
     
     private final Executor executor;
-    private final long timeoutSeconds;
+    private final long timeoutSeconds; // TODO: Implement timeout handling for async schema loading
     private final RelDataTypeFactory typeFactory;
     
     /**
