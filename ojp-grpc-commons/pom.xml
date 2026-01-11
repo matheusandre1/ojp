@@ -17,9 +17,30 @@
 
     <properties>
         <grpc.version>1.73.0</grpc.version>
+        <netty.version>4.1.119.Final</netty.version>
         <os-maven-plugin.version>1.7.1</os-maven-plugin.version>
         <slf4j.version>2.0.17</slf4j.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Override Netty versions to fix CVE-2025-25193, CVE-2024-47535, CVE-2025-24970 -->
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-bom</artifactId>
+                <version>${netty.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            
+            <!-- Override commons-lang3 to fix CVE-2025-48924 -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>3.18.0</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- JUnit 5 API -->
