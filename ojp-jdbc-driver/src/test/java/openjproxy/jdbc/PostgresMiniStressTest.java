@@ -14,6 +14,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -148,17 +150,31 @@ public class PostgresMiniStressTest {
         int numQueries = totalQueries.get();
         int numFailures = failedQueries.get();
         long totalTimeMs = (globalEnd - globalStart) / 1_000_000;
-        double avgQueryMs = numQueries > 0
-                ? queryDurations.stream().mapToLong(Long::longValue).average().orElse(0) / 1_000_000.0
-                : 0;
+        
         System.out.println("\n=== TEST REPORT ===");
         System.out.println("Total queries executed: " + numQueries);
         System.out.println("Total test duration: " + totalTimeMs + " ms");
-        System.out.printf("Average query duration: %.3f ms\n", avgQueryMs);
         System.out.println("Total query failures: " + numFailures);
+        
+        // Display performance metrics
+        List<Long> durationList = new ArrayList<>(queryDurations);
+        String performanceReport = PerformanceMetrics.generatePerformanceReport(durationList, numQueries, totalTimeMs);
+        System.out.println(performanceReport);
+        
+        // Display JVM metrics
+        System.out.println("=== OJP SERVER JVM METRICS ===");
+        PerformanceMetrics.JvmStatistics jvmStats = PerformanceMetrics.collectJvmStatistics();
+        System.out.println(jvmStats.toString());
+        
+        // Original assertions
         assertEquals(680, numQueries);
         assertEquals(10, numFailures);
         assertTrue(totalTimeMs < 30000);
+        
+        // Calculate average for assertion
+        double avgQueryMs = numQueries > 0
+                ? durationList.stream().mapToLong(Long::longValue).average().orElse(0) / 1_000_000.0
+                : 0;
         assertTrue(avgQueryMs < 100);
     }
 
