@@ -127,6 +127,12 @@ jobs:
   # Matrix strategy: Tests against Java 11, 17, 21, 22
   # Execution: Only runs AFTER build-test job succeeds (needs: [build-test])
   #
+  # SQL Enhancer Testing:
+  # All PostgreSQL tests run twice per matrix configuration:
+  # 1. Against standard OJP server (port 1059, SQL enhancer disabled)
+  # 2. Against OJP server with SQL enhancer enabled (port 10593)
+  # This ensures compatibility with both configurations.
+  #
   # ===========================================================================
   postgres-test:
     name: PostgreSQL Tests (JDK ${{ matrix.java-version }})
@@ -182,11 +188,16 @@ jobs:
       - name: Build (ojp-server) with JDK 22
         run: mvn clean install -pl ojp-server -am -DskipTests -Dgpg.skip=true
 
+      # Start first OJP server without SQL enhancer (default configuration)
+      # Tests will run against this server via postgres_connection.csv (port 1059)
       - name: Test and Run (ojp-server)
         run: |
           nohup java -jar ojp-server/target/ojp-server-0.3.2-snapshot-shaded.jar > /tmp/ojp-server.log 2>&1 &
           echo $! > /tmp/ojp-server.pid
 
+      # Start second OJP server WITH SQL enhancer enabled
+      # Tests will run against this server via postgres_connection.csv (port 10593)
+      # This ensures all PostgreSQL tests validate both configurations
       - name: Test and Run (ojp-server-enhancer on port 10593)
         run: |
           nohup java -Dojp.server.port=10593 -Dojp.prometheus.port=9163 -Dojp.sql.enhancer.enabled=true -jar ojp-server/target/ojp-server-0.3.2-snapshot-shaded.jar > /tmp/ojp-server-enhancer.log 2>&1 &

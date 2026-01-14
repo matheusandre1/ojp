@@ -317,6 +317,7 @@ OJP is a multi-module Maven project:
 Tests run automatically in GitHub Actions:
 - **Main CI**: Runs H2 tests first (fast fail-fast mechanism)
 - **Specialized Jobs**: Run only after Main CI succeeds (PostgreSQL, MySQL, MariaDB, CockroachDB, Oracle, SQL Server, DB2)
+  - **PostgreSQL tests** run twice: once with standard OJP server and once with SQL enhancer enabled
 
 For more details, see [Setup and Testing OJP Source](https://github.com/Open-J-Proxy/ojp/blob/main/documents/code-contributions/setup_and_testing_ojp_source.md).
 

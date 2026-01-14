@@ -86,6 +86,10 @@ The CI workflows are organized in a hierarchical order to save CI cycles:
 
 2. **Specialized Test Jobs** - Run only after Main CI succeeds (using `needs: [build-test]`)
    - PostgreSQL Integration Tests (JDK 11, 17, 21, 22)
+     - **Note**: All PostgreSQL integration tests run twice per matrix configuration:
+       1. Against a standard OJP server without SQL enhancer
+       2. Against an OJP server with SQL enhancer enabled (`-Dojp.sql.enhancer.enabled=true`)
+     - This ensures compatibility and correctness with both configurations
    - MySQL Integration Tests (JDK 11, 17, 21, 22)
    - MariaDB Integration Tests (JDK 11, 17, 21, 22)
    - CockroachDB Integration Tests (JDK 11, 17, 21, 22)
