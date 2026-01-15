@@ -43,7 +43,6 @@ import org.openjproxy.grpc.server.resultset.ResultSetWrapper;
 import org.openjproxy.grpc.server.statement.ParameterHandler;
 import org.openjproxy.grpc.server.statement.StatementFactory;
 import org.openjproxy.grpc.server.utils.DateTimeUtils;
-import org.openjproxy.grpc.server.utils.DriverUtils;
 import org.openjproxy.grpc.server.utils.MethodNameGenerator;
 import org.openjproxy.grpc.server.utils.MethodReflectionUtils;
 import org.openjproxy.grpc.server.utils.SessionInfoUtils;
@@ -2303,29 +2302,9 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
     @Override
     public void xaGetTransactionTimeout(com.openjproxy.grpc.XaGetTransactionTimeoutRequest request, 
                                         StreamObserver<com.openjproxy.grpc.XaGetTransactionTimeoutResponse> responseObserver) {
-        log.debug("xaGetTransactionTimeout: session={}", request.getSession().getSessionUUID());
-        
-        try {
-            Session session = sessionManager.getSession(request.getSession());
-            if (session == null || !session.isXA() || session.getXaResource() == null) {
-                throw new SQLException("Session is not an XA session");
-            }
-            
-            int timeout = session.getXaResource().getTransactionTimeout();
-            
-            com.openjproxy.grpc.XaGetTransactionTimeoutResponse response = 
-                    com.openjproxy.grpc.XaGetTransactionTimeoutResponse.newBuilder()
-                    .setSession(session.getSessionInfo())
-                    .setSeconds(timeout)
-                    .build();
-            responseObserver.onNext(response);
-            responseObserver.onCompleted();
+        new org.openjproxy.grpc.server.action.transaction.XaGetTransactionTimeoutAction(sessionManager)
+                .execute(request, responseObserver);
 
-        } catch (Exception e) {
-            log.error("Error in xaGetTransactionTimeout", e);
-            SQLException sqlException = (e instanceof SQLException) ? (SQLException) e : new SQLException(e);
-            sendSQLExceptionMetadata(sqlException, responseObserver);
-        }
     }
 
     @Override

@@ -71,7 +71,7 @@ public class XaSetTransactionTimeoutAction
      */
     @Override
     public void execute(XaSetTransactionTimeoutRequest request,
-            StreamObserver<XaSetTransactionTimeoutResponse> responseObserver) {
+                        StreamObserver<XaSetTransactionTimeoutResponse> responseObserver) {
         log.debug("xaSetTransactionTimeout: session={}, seconds={}",
                 request.getSession().getSessionUUID(), request.getSeconds());
 
