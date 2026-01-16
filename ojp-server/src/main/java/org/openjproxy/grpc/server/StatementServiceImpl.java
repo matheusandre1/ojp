@@ -334,8 +334,8 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
 
     @Override
     public void connect(ConnectionDetails connectionDetails, StreamObserver<SessionInfo> responseObserver) {
-        new org.openjproxy.grpc.server.action.connection.ConnectAction(actionContext)
-            .execute(connectionDetails, responseObserver);
+        org.openjproxy.grpc.server.action.connection.ConnectAction.getInstance()
+            .execute(actionContext, connectionDetails, responseObserver);
     }
     
     /**
@@ -2326,7 +2326,7 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
     @Override
     public void xaForget(com.openjproxy.grpc.XaForgetRequest request, StreamObserver<com.openjproxy.grpc.XaResponse> responseObserver) {
         new org.openjproxy.grpc.server.action.transaction.XaForgetAction(sessionManager)
-                .execute(request, responseObserver);
+                .execute(actionContext, request, responseObserver);
     }
 
     @Override
