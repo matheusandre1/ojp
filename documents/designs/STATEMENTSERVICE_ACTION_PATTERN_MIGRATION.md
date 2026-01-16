@@ -53,7 +53,7 @@ classDiagram
 
     class Action~TRequest,TResponse~ {
         <<interface>>
-        +execute(TRequest, StreamObserver~TResponse~) void
+        +execute(ActionContext, TRequest, StreamObserver~TResponse~) void
     }
 
     class StreamingAction~TRequest,TResponse~ {
@@ -72,35 +72,41 @@ classDiagram
     }
 
     class ConnectAction {
-        -ActionContext context
-        +execute(ConnectionDetails, StreamObserver~SessionInfo~) void
+        -static INSTANCE ConnectAction
+        +getInstance() ConnectAction
+        +execute(ActionContext, ConnectionDetails, StreamObserver~SessionInfo~) void
         -handleXAConnection()
         -handleRegularConnection()
     }
 
     class ExecuteUpdateAction {
-        -ActionContext context
-        +execute(StatementRequest, StreamObserver~OpResult~) void
+        -static INSTANCE ExecuteUpdateAction
+        +getInstance() ExecuteUpdateAction
+        +execute(ActionContext, StatementRequest, StreamObserver~OpResult~) void
     }
 
     class ExecuteQueryAction {
-        -ActionContext context
-        +execute(StatementRequest, StreamObserver~OpResult~) void
+        -static INSTANCE ExecuteQueryAction
+        +getInstance() ExecuteQueryAction
+        +execute(ActionContext, StatementRequest, StreamObserver~OpResult~) void
     }
 
     class StartTransactionAction {
-        -ActionContext context
-        +execute(SessionInfo, StreamObserver~SessionInfo~) void
+        -static INSTANCE StartTransactionAction
+        +getInstance() StartTransactionAction
+        +execute(ActionContext, SessionInfo, StreamObserver~SessionInfo~) void
     }
 
     class CreateLobAction {
-        -ActionContext context
+        -static INSTANCE CreateLobAction
+        +getInstance() CreateLobAction
         +execute(StreamObserver~LobReference~) StreamObserver~LobDataBlock~
     }
 
     class HandleXAConnectionWithPoolingAction {
-        -ActionContext context
-        +execute(ConnectionDetails, StreamObserver~SessionInfo~) void
+        -static INSTANCE HandleXAConnectionWithPoolingAction
+        +getInstance() HandleXAConnectionWithPoolingAction
+        +execute(ActionContext, ConnectionDetails, StreamObserver~SessionInfo~) void
     }
 
     StatementServiceImpl --> ActionContext : uses
@@ -117,12 +123,12 @@ classDiagram
     CreateLobAction ..|> StreamingAction : implements
     HandleXAConnectionWithPoolingAction ..|> Action : implements
     
-    ConnectAction --> ActionContext : uses
-    ExecuteUpdateAction --> ActionContext : uses
-    ExecuteQueryAction --> ActionContext : uses
-    StartTransactionAction --> ActionContext : uses
-    CreateLobAction --> ActionContext : uses
-    HandleXAConnectionWithPoolingAction --> ActionContext : uses
+    ConnectAction --> ActionContext : receives as param
+    ExecuteUpdateAction --> ActionContext : receives as param
+    ExecuteQueryAction --> ActionContext : receives as param
+    StartTransactionAction --> ActionContext : receives as param
+    CreateLobAction --> ActionContext : receives as param
+    HandleXAConnectionWithPoolingAction --> ActionContext : receives as param
     
     ConnectAction --> HandleXAConnectionWithPoolingAction : uses
 ```
@@ -171,22 +177,40 @@ sequenceDiagram
 
 ### Action Interfaces
 
-**Note**: The following interfaces are part of the original action pattern design. However, when implementing actions as **singletons**, actions should NOT implement these interfaces. Instead, singleton actions have their own execute method that accepts ActionContext as the first parameter.
-
-For reference, here are the original interfaces (used by non-singleton actions):
+All actions MUST be implemented as singletons and MUST implement the appropriate action interface.
 
 #### 1. Action<TRequest, TResponse>
 For standard RPC methods (20 of 21 methods).
 
 ```java
 public interface Action<TRequest, TResponse> {
-    void execute(TRequest request, StreamObserver<TResponse> responseObserver);
+    void execute(ActionContext context, TRequest request, StreamObserver<TResponse> responseObserver);
+}
+```
+
+**Implementation Pattern:**
+```java
+@Slf4j
+public class ConnectAction implements Action<ConnectionDetails, SessionInfo> {
+    private static final ConnectAction INSTANCE = new ConnectAction();
+    
+    private ConnectAction() {
+        // Private constructor prevents external instantiation
+    }
+    
+    public static ConnectAction getInstance() {
+        return INSTANCE;
+    }
+    
+    @Override
+    public void execute(ActionContext context, ConnectionDetails request, 
+                       StreamObserver<SessionInfo> responseObserver) {
+        // Action logic - stateless, all state via context parameter
+    }
 }
 ```
 
 **Examples**: connect, executeUpdate, executeQuery, transactions, XA operations, etc.
-
-**Limitation**: This interface doesn't support passing ActionContext, so singleton actions should use a custom execute method signature instead.
 
 #### 2. StreamingAction<TRequest, TResponse>
 For bidirectional streaming (1 method: createLob).
@@ -228,7 +252,7 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
 
 **⚠️ IMPORTANT: All actions MUST be implemented as singletons for thread-safety and memory efficiency.**
 
-Actions are stateless and receive the ActionContext as a parameter, making them thread-safe and reusable.
+Actions are stateless, implement the Action interface, and receive the ActionContext as a parameter.
 
 ```java
 // StatementServiceImpl - thin delegator
@@ -242,7 +266,7 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
 
 // ConnectAction - focused logic (~150 lines) - SINGLETON PATTERN
 @Slf4j
-public class ConnectAction {
+public class ConnectAction implements Action<ConnectionDetails, SessionInfo> {
     private static final ConnectAction INSTANCE = new ConnectAction();
     
     private ConnectAction() {
@@ -253,12 +277,10 @@ public class ConnectAction {
         return INSTANCE;
     }
     
-    /**
-     * Execute the connect action.
-     * Note: This action is stateless - context is passed as a parameter, not stored as a field.
-     */
-    public void execute(ActionContext context, ConnectionDetails request, StreamObserver<SessionInfo> responseObserver) {
-        // Connection handling logic
+    @Override
+    public void execute(ActionContext context, ConnectionDetails request, 
+                       StreamObserver<SessionInfo> responseObserver) {
+        // Connection handling logic - stateless, all state via context parameter
         // Access: context.getDatasourceMap(), context.getSessionManager(), etc.
         // Delegate to helper actions: HandleXAConnectionAction.getInstance().execute(context, ...)
     }
@@ -269,7 +291,7 @@ public class ConnectAction {
 
 All action classes MUST be implemented as singletons for the following reasons:
 
-1. **Thread-Safety**: Actions are stateless - they receive all necessary state via parameters (ActionContext, request). This makes them inherently thread-safe and reusable across concurrent requests.
+1. **Thread-Safety**: Actions implement the Action interface and are stateless - they receive all necessary state via parameters (ActionContext, request). This makes them inherently thread-safe and reusable across concurrent requests.
 
 2. **Memory Efficiency**: Creating new action instances for every request would generate millions of short-lived objects per day in production. Singletons eliminate this overhead.
 
@@ -277,7 +299,7 @@ All action classes MUST be implemented as singletons for the following reasons:
 
 4. **Consistency**: All actions follow the same pattern, making the codebase easier to understand and maintain.
 
-**Note**: Actions do NOT store ActionContext as an instance field. Instead, they receive it as a parameter to their execute() method, ensuring they remain truly stateless and thread-safe.
+**Note**: Actions do NOT store ActionContext as an instance field. Instead, they receive it as a parameter to their execute() method via the Action interface, ensuring they remain truly stateless and thread-safe.
 
 ## Quick Start for Contributors
 
@@ -292,18 +314,17 @@ Choose any of the 20 remaining public methods in `StatementServiceImpl`:
 
 ### 3. Implementation Steps
 1. **Create action class** in appropriate package (e.g., `org.openjproxy.grpc.server.action.transaction`)
-2. **Implement singleton pattern**:
+2. **Implement Action interface**: `public class YourAction implements Action<RequestType, ResponseType>`
+3. **Implement singleton pattern**:
    - Add private constructor
    - Add `private static final YourAction INSTANCE = new YourAction();`
    - Add `public static YourAction getInstance() { return INSTANCE; }`
-3. **Create execute method** with signature: `public void execute(ActionContext context, RequestType request, StreamObserver<ResponseType> observer)`
-4. **Copy method logic** from `StatementServiceImpl` to action's `execute()` method
-5. **Use context parameter** instead of instance fields - e.g., `context.getDatasourceMap()`, `context.getSessionManager()`
-6. **Update StatementServiceImpl** to delegate: `YourAction.getInstance().execute(actionContext, request, observer);`
-7. **Test** - ensure compilation and existing tests pass
-8. **Submit PR** with clear description
-
-**Important**: Actions should NOT implement the `Action<TRequest, TResponse>` interface if they use the singleton pattern, as the interface doesn't include ActionContext as a parameter. The action is stateless and receives context via the execute method parameter.
+4. **Implement execute method**: `@Override public void execute(ActionContext context, RequestType request, StreamObserver<ResponseType> observer)`
+5. **Copy method logic** from `StatementServiceImpl` to action's `execute()` method
+6. **Use context parameter** instead of instance fields - e.g., `context.getDatasourceMap()`, `context.getSessionManager()`
+7. **Update StatementServiceImpl** to delegate: `YourAction.getInstance().execute(actionContext, request, observer);`
+8. **Test** - ensure compilation and existing tests pass
+9. **Submit PR** with clear description
 
 ### Common Patterns
 
@@ -314,8 +335,9 @@ public void methodName(Request request, StreamObserver<Response> observer) {
     MethodNameAction.getInstance().execute(actionContext, request, observer);
 }
 
-// In Action class (Singleton)
-public class MethodNameAction {
+// In Action class (Singleton implementing Action interface)
+@Slf4j
+public class MethodNameAction implements Action<Request, Response> {
     private static final MethodNameAction INSTANCE = new MethodNameAction();
     
     private MethodNameAction() {}
@@ -324,8 +346,9 @@ public class MethodNameAction {
         return INSTANCE;
     }
     
+    @Override
     public void execute(ActionContext context, Request request, StreamObserver<Response> observer) {
-        // Action logic here
+        // Action logic here - stateless, all state via context parameter
     }
 }
 ```

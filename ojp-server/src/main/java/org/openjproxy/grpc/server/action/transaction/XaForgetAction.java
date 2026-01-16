@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.openjproxy.grpc.server.Session;
 import org.openjproxy.grpc.server.SessionManager;
 import org.openjproxy.grpc.server.action.Action;
+import org.openjproxy.grpc.server.action.ActionContext;
 
 import java.sql.SQLException;
 
@@ -49,11 +50,12 @@ public class XaForgetAction implements Action<XaForgetRequest, XaResponse> {
      * protobuf XID to a javax.transaction.xa.Xid, and calls forget on the
      * XA resource.
      *
+     * @param context          the action context (not used by this action)
      * @param request          the XA forget request containing the session and XID
      * @param responseObserver the response observer for sending the result
      */
     @Override
-    public void execute(XaForgetRequest request, StreamObserver<XaResponse> responseObserver) {
+    public void execute(ActionContext context, XaForgetRequest request, StreamObserver<XaResponse> responseObserver) {
         log.debug("xaForget: session={}, xid={}",
                 request.getSession().getSessionUUID(), request.getXid());
 

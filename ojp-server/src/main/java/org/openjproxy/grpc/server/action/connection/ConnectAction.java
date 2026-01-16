@@ -13,6 +13,7 @@ import org.openjproxy.datasource.PoolConfig;
 import org.openjproxy.grpc.server.MultinodePoolCoordinator;
 import org.openjproxy.grpc.server.MultinodeXaCoordinator;
 import org.openjproxy.grpc.server.UnpooledConnectionDetails;
+import org.openjproxy.grpc.server.action.Action;
 import org.openjproxy.grpc.server.action.ActionContext;
 import org.openjproxy.grpc.server.pool.ConnectionPoolConfigurer;
 import org.openjproxy.grpc.server.pool.DataSourceConfigurationManager;
@@ -35,7 +36,7 @@ import static org.openjproxy.grpc.server.GrpcExceptionHandler.sendSQLExceptionMe
  * It is stateless and receives all necessary context via parameters.
  */
 @Slf4j
-public class ConnectAction {
+public class ConnectAction implements Action<ConnectionDetails, SessionInfo> {
     
     private static final ConnectAction INSTANCE = new ConnectAction();
     
@@ -47,6 +48,7 @@ public class ConnectAction {
         return INSTANCE;
     }
     
+    @Override
     public void execute(ActionContext context, ConnectionDetails connectionDetails, StreamObserver<SessionInfo> responseObserver) {
         // Handle empty connection details (health check)
         if (StringUtils.isBlank(connectionDetails.getUrl()) &&
