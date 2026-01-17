@@ -94,6 +94,7 @@ import static org.openjproxy.grpc.server.Constants.EMPTY_MAP;
 import static org.openjproxy.grpc.server.GrpcExceptionHandler.sendSQLExceptionMetadata;
 import static org.openjproxy.grpc.server.action.transaction.XidHelper.convertXid;
 import static org.openjproxy.grpc.server.action.transaction.XidHelper.convertXidToProto;
+import org.openjproxy.grpc.server.action.statement.ExecuteQueryAction;
 
 @Slf4j
 public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceImplBase {
@@ -891,41 +892,7 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
 
     @Override
     public void executeQuery(StatementRequest request, StreamObserver<OpResult> responseObserver) {
-        log.info("Executing query for {}", request.getSql());
-        String stmtHash = SqlStatementXXHash.hashSqlQuery(request.getSql());
-
-        // Process cluster health from the request
-        processClusterHealth(request.getSession());
-
-        try {
-            circuitBreaker.preCheck(stmtHash);
-
-            // Get the appropriate slow query segregation manager for this datasource
-            String connHash = request.getSession().getConnHash();
-            SlowQuerySegregationManager manager = getSlowQuerySegregationManagerForConnection(connHash);
-
-            // Execute with slow query segregation
-            manager.executeWithSegregation(stmtHash, () -> {
-                executeQueryInternal(request, responseObserver);
-                return null; // Void return for query execution
-            });
-
-            circuitBreaker.onSuccess(stmtHash);
-        } catch (SQLException e) {
-            circuitBreaker.onFailure(stmtHash, e);
-            log.error("Failure during query execution: " + e.getMessage(), e);
-            sendSQLExceptionMetadata(e, responseObserver);
-        } catch (Exception e) {
-            log.error("Unexpected failure during query execution: " + e.getMessage(), e);
-            if (e.getCause() instanceof SQLException) {
-                circuitBreaker.onFailure(stmtHash, (SQLException) e.getCause());
-                sendSQLExceptionMetadata((SQLException) e.getCause(), responseObserver);
-            } else {
-                SQLException sqlException = new SQLException("Unexpected error: " + e.getMessage(), e);
-                circuitBreaker.onFailure(stmtHash, sqlException);
-                sendSQLExceptionMetadata(sqlException, responseObserver);
-            }
-        }
+        ExecuteQueryAction.getInstance().execute(actionContext, request, responseObserver);
     }
 
     /**
