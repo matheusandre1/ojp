@@ -99,6 +99,7 @@ import org.openjproxy.grpc.server.action.xa.XaEndAction;
 import org.openjproxy.grpc.server.action.transaction.CommitTransactionAction;
 import org.openjproxy.grpc.server.action.session.TerminateSessionAction;
 import org.openjproxy.grpc.server.action.resource.CallResourceAction;
+import org.openjproxy.grpc.server.action.xa.XaPrepareAction;
 
 @Slf4j
 public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceImplBase {
@@ -1638,52 +1639,7 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
     @Override
     public void xaPrepare(com.openjproxy.grpc.XaPrepareRequest request,
             StreamObserver<com.openjproxy.grpc.XaPrepareResponse> responseObserver) {
-        log.debug("xaPrepare: session={}, xid={}",
-                request.getSession().getSessionUUID(), request.getXid());
-
-        // Process cluster health changes before XA operation
-        processClusterHealth(request.getSession());
-
-        try {
-            Session session = sessionManager.getSession(request.getSession());
-            if (session == null || !session.isXA()) {
-                throw new SQLException("Session is not an XA session");
-            }
-
-            int result;
-
-            // Branch based on XA pooling configuration
-            if (xaPoolProvider != null) {
-                // **NEW PATH: Use XATransactionRegistry**
-                String connHash = session.getSessionInfo().getConnHash();
-                XATransactionRegistry registry = xaRegistries.get(connHash);
-                if (registry == null) {
-                    throw new SQLException("No XA registry found for connection hash: " + connHash);
-                }
-
-                XidKey xidKey = XidKey.from(convertXid(request.getXid()));
-                result = registry.xaPrepare(xidKey);
-            } else {
-                // **OLD PATH: Pass-through (legacy)**
-                if (session.getXaResource() == null) {
-                    throw new SQLException("Session does not have XAResource");
-                }
-                javax.transaction.xa.Xid xid = convertXid(request.getXid());
-                result = session.getXaResource().prepare(xid);
-            }
-
-            com.openjproxy.grpc.XaPrepareResponse response = com.openjproxy.grpc.XaPrepareResponse.newBuilder()
-                    .setSession(session.getSessionInfo())
-                    .setResult(result)
-                    .build();
-            responseObserver.onNext(response);
-            responseObserver.onCompleted();
-
-        } catch (Exception e) {
-            log.error("Error in xaPrepare", e);
-            SQLException sqlException = (e instanceof SQLException) ? (SQLException) e : new SQLException(e);
-            sendSQLExceptionMetadata(sqlException, responseObserver);
-        }
+        XaPrepareAction.getInstance().execute(actionContext, request, responseObserver);
     }
 
     @Override
