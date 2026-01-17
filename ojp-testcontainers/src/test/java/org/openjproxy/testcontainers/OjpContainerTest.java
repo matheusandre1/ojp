@@ -16,7 +16,7 @@ class OjpContainerTest {
         try (OjpContainer container = new OjpContainer()) {
             assertNotNull(container);
             assertEquals(1, container.getExposedPorts().size());
-            assertTrue(container.getExposedPorts().contains(OjpContainer.OJP_PORT));
+            assertTrue(container.getExposedPorts().contains(1059));
         }
     }
 
@@ -25,7 +25,7 @@ class OjpContainerTest {
         try (OjpContainer container = new OjpContainer("0.3.1-beta")) {
             assertNotNull(container);
             assertEquals(1, container.getExposedPorts().size());
-            assertTrue(container.getExposedPorts().contains(OjpContainer.OJP_PORT));
+            assertTrue(container.getExposedPorts().contains(1059));
         }
     }
 
@@ -35,7 +35,7 @@ class OjpContainerTest {
         try (OjpContainer container = new OjpContainer(imageName)) {
             assertNotNull(container);
             assertEquals(1, container.getExposedPorts().size());
-            assertTrue(container.getExposedPorts().contains(OjpContainer.OJP_PORT));
+            assertTrue(container.getExposedPorts().contains(1059));
         }
     }
 

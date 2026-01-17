@@ -40,9 +40,10 @@ public class OjpContainer extends GenericContainer<OjpContainer> {
         DockerImageName.parse("rrobetti/ojp:0.3.1-beta");
     
     /**
-     * Default OJP Server port
+     * Default OJP Server port (internal container port).
+     * The actual mapped port on the host is randomly assigned by TestContainers.
      */
-    public static final int OJP_PORT = 1059;
+    private static final int OJP_PORT = 1059;
 
     /**
      * Creates an OjpContainer with the default Docker image.
