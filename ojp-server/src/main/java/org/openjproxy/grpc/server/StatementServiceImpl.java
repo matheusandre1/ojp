@@ -94,6 +94,7 @@ import static org.openjproxy.grpc.server.Constants.EMPTY_MAP;
 import static org.openjproxy.grpc.server.GrpcExceptionHandler.sendSQLExceptionMetadata;
 import static org.openjproxy.grpc.server.action.transaction.XidHelper.convertXid;
 import static org.openjproxy.grpc.server.action.transaction.XidHelper.convertXidToProto;
+import org.openjproxy.grpc.server.action.transaction.CommitTransactionAction;
 import org.openjproxy.grpc.server.action.session.TerminateSessionAction;
 import org.openjproxy.grpc.server.action.resource.CallResourceAction;
 
@@ -1248,31 +1249,7 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
 
     @Override
     public void commitTransaction(SessionInfo sessionInfo, StreamObserver<SessionInfo> responseObserver) {
-        log.info("Commiting transaction");
-
-        // Process cluster health from the request
-        processClusterHealth(sessionInfo);
-
-        try {
-            Connection conn = sessionManager.getConnection(sessionInfo);
-            conn.commit();
-
-            TransactionInfo transactionInfo = TransactionInfo.newBuilder()
-                    .setTransactionStatus(TransactionStatus.TRX_COMMITED)
-                    .setTransactionUUID(sessionInfo.getTransactionInfo().getTransactionUUID())
-                    .build();
-
-            SessionInfo.Builder sessionInfoBuilder = SessionInfoUtils.newBuilderFrom(sessionInfo);
-            sessionInfoBuilder.setTransactionInfo(transactionInfo);
-            // Server echoes back targetServer from incoming request (preserved by newBuilderFrom)
-
-            responseObserver.onNext(sessionInfoBuilder.build());
-            responseObserver.onCompleted();
-        } catch (SQLException se) {
-            sendSQLExceptionMetadata(se, responseObserver);
-        } catch (Exception e) {
-            sendSQLExceptionMetadata(new SQLException("Unable to commit transaction: " + e.getMessage()), responseObserver);
-        }
+        CommitTransactionAction.getInstance().execute(actionContext, sessionInfo, responseObserver);
     }
 
     @Override
