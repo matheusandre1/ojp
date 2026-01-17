@@ -95,6 +95,7 @@ import static org.openjproxy.grpc.server.Constants.EMPTY_MAP;
 import static org.openjproxy.grpc.server.GrpcExceptionHandler.sendSQLExceptionMetadata;
 import static org.openjproxy.grpc.server.action.transaction.XidHelper.convertXid;
 import static org.openjproxy.grpc.server.action.transaction.XidHelper.convertXidToProto;
+import org.openjproxy.grpc.server.action.xa.XaEndAction;
 
 @Slf4j
 public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceImplBase {
@@ -1872,48 +1873,7 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
     @Override
     public void xaEnd(com.openjproxy.grpc.XaEndRequest request,
             StreamObserver<com.openjproxy.grpc.XaResponse> responseObserver) {
-        log.debug("xaEnd: session={}, xid={}, flags={}",
-                request.getSession().getSessionUUID(), request.getXid(), request.getFlags());
-
-        try {
-            Session session = sessionManager.getSession(request.getSession());
-            if (session == null || !session.isXA()) {
-                throw new SQLException("Session is not an XA session");
-            }
-
-            // Branch based on XA pooling configuration
-            if (xaPoolProvider != null) {
-                // **NEW PATH: Use XATransactionRegistry**
-                String connHash = session.getSessionInfo().getConnHash();
-                XATransactionRegistry registry = xaRegistries.get(connHash);
-                if (registry == null) {
-                    throw new SQLException("No XA registry found for connection hash: " + connHash);
-                }
-
-                XidKey xidKey = XidKey.from(convertXid(request.getXid()));
-                registry.xaEnd(xidKey, request.getFlags());
-            } else {
-                // **OLD PATH: Pass-through (legacy)**
-                if (session.getXaResource() == null) {
-                    throw new SQLException("Session does not have XAResource");
-                }
-                javax.transaction.xa.Xid xid = convertXid(request.getXid());
-                session.getXaResource().end(xid, request.getFlags());
-            }
-
-            com.openjproxy.grpc.XaResponse response = com.openjproxy.grpc.XaResponse.newBuilder()
-                    .setSession(session.getSessionInfo())
-                    .setSuccess(true)
-                    .setMessage("XA end successful")
-                    .build();
-            responseObserver.onNext(response);
-            responseObserver.onCompleted();
-
-        } catch (Exception e) {
-            log.error("Error in xaEnd", e);
-            SQLException sqlException = (e instanceof SQLException) ? (SQLException) e : new SQLException(e);
-            sendSQLExceptionMetadata(sqlException, responseObserver);
-        }
+        XaEndAction.getInstance().execute(actionContext, request, responseObserver);
     }
 
     @Override
