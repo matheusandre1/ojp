@@ -206,4 +206,17 @@ public class SessionManagerImpl implements SessionManager {
         return session.getAttr(key);
     }
 
+    @Override
+    public void updateSessionActivity(SessionInfo sessionInfo) {
+        Session session = this.sessionMap.get(sessionInfo.getSessionUUID());
+        if (session != null) {
+            session.updateActivity();
+        }
+    }
+
+    @Override
+    public Collection<Session> getAllSessions() {
+        return this.sessionMap.values();
+    }
+
 }

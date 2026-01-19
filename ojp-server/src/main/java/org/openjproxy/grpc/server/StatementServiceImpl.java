@@ -147,6 +147,18 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
     }
 
     /**
+     * Updates the last activity time for the session to prevent premature cleanup.
+     * This should be called at the beginning of any method that operates on a session.
+     *
+     * @param sessionInfo the session information
+     */
+    private void updateSessionActivity(SessionInfo sessionInfo) {
+        if (sessionInfo != null && sessionInfo.getSessionUUID() != null && !sessionInfo.getSessionUUID().isEmpty()) {
+            sessionManager.updateSessionActivity(sessionInfo);
+        }
+    }
+
+    /**
      * Initialize XA Pool Provider if XA pooling is enabled in configuration.
      * Loads the provider via ServiceLoader (Commons Pool 2 by default).
      */
@@ -310,6 +322,10 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
     @Override
     public void executeUpdate(StatementRequest request, StreamObserver<OpResult> responseObserver) {
         log.info("Executing update {}", request.getSql());
+        
+        // Update session activity
+        updateSessionActivity(request.getSession());
+        
         String stmtHash = SqlStatementXXHash.hashSqlQuery(request.getSql());
 
         // Process cluster health from the request
@@ -447,6 +463,10 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
     @Override
     public void executeQuery(StatementRequest request, StreamObserver<OpResult> responseObserver) {
         log.info("Executing query for {}", request.getSql());
+        
+        // Update session activity
+        updateSessionActivity(request.getSession());
+        
         String stmtHash = SqlStatementXXHash.hashSqlQuery(request.getSql());
 
         // Process cluster health from the request
@@ -525,6 +545,9 @@ public class StatementServiceImpl extends StatementServiceGrpc.StatementServiceI
     @Override
     public void fetchNextRows(ResultSetFetchRequest request, StreamObserver<OpResult> responseObserver) {
         log.debug("Executing fetch next rows for result set  {}", request.getResultSetUUID());
+
+        // Update session activity
+        updateSessionActivity(request.getSession());
 
         // Process cluster health from the request
         processClusterHealth(request.getSession());

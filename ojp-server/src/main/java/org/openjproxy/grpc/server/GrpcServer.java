@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class GrpcServer {
@@ -79,13 +80,59 @@ public class GrpcServer {
         logger.info("Starting OJP gRPC Server on port {}", config.getServerPort());
         logger.info("Server configuration applied successfully");
         
+        // Initialize session cleanup task if enabled
+        ScheduledExecutorService sessionCleanupExecutor = null;
+        if (config.isSessionCleanupEnabled()) {
+            logger.info("Initializing session cleanup task: timeout={}min, interval={}min", 
+                    config.getSessionTimeoutMinutes(), config.getSessionCleanupIntervalMinutes());
+            
+            sessionCleanupExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread thread = new Thread(r, "ojp-session-cleanup");
+                thread.setDaemon(true);
+                return thread;
+            });
+            
+            long timeoutMillis = config.getSessionTimeoutMinutes() * 60 * 1000;
+            long intervalMillis = config.getSessionCleanupIntervalMinutes() * 60 * 1000;
+            
+            SessionCleanupTask cleanupTask = new SessionCleanupTask(sessionManager, timeoutMillis);
+            sessionCleanupExecutor.scheduleAtFixedRate(
+                    cleanupTask, 
+                    intervalMillis, // Initial delay
+                    intervalMillis, // Period
+                    TimeUnit.MILLISECONDS
+            );
+            
+            logger.info("Session cleanup task started successfully");
+        } else {
+            logger.info("Session cleanup is disabled");
+        }
+        
         server.start();
         OjpHealthManager.setServiceStatus(OjpHealthManager.Services.OJP_SERVER,
                 HealthCheckResponse.ServingStatus.SERVING);
         
         // Add shutdown hook
+        ScheduledExecutorService finalSessionCleanupExecutor = sessionCleanupExecutor;
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             logger.info("Shutting down OJP gRPC Server...");
+            
+            // Shutdown session cleanup task first
+            if (finalSessionCleanupExecutor != null) {
+                logger.info("Shutting down session cleanup executor...");
+                finalSessionCleanupExecutor.shutdown();
+                try {
+                    if (!finalSessionCleanupExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                        logger.warn("Session cleanup executor did not terminate gracefully");
+                        finalSessionCleanupExecutor.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    logger.warn("Interrupted while waiting for session cleanup shutdown");
+                    finalSessionCleanupExecutor.shutdownNow();
+                    Thread.currentThread().interrupt();
+                }
+            }
+            
             server.shutdown();
 
             try {
