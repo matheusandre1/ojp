@@ -162,4 +162,32 @@ public class ServerConfigurationTest {
         config = new ServerConfiguration();
         assertEquals("/custom/path/to/libs", config.getDriversPath());
     }
+
+    @Test
+    public void testDefaultSessionCleanupConfiguration() {
+        ServerConfiguration config = new ServerConfiguration();
+
+        assertEquals(ServerConfiguration.DEFAULT_SESSION_CLEANUP_ENABLED, config.isSessionCleanupEnabled());
+        assertEquals(ServerConfiguration.DEFAULT_SESSION_TIMEOUT_MINUTES, config.getSessionTimeoutMinutes());
+        assertEquals(ServerConfiguration.DEFAULT_SESSION_CLEANUP_INTERVAL_MINUTES, config.getSessionCleanupIntervalMinutes());
+    }
+
+    @Test
+    public void testCustomSessionCleanupConfiguration() {
+        // Set custom properties
+        System.setProperty("ojp.server.sessionCleanup.enabled", "false");
+        System.setProperty("ojp.server.sessionCleanup.timeoutMinutes", "60");
+        System.setProperty("ojp.server.sessionCleanup.intervalMinutes", "10");
+
+        ServerConfiguration config = new ServerConfiguration();
+
+        assertFalse(config.isSessionCleanupEnabled());
+        assertEquals(60, config.getSessionTimeoutMinutes());
+        assertEquals(10, config.getSessionCleanupIntervalMinutes());
+
+        // Cleanup
+        System.clearProperty("ojp.server.sessionCleanup.enabled");
+        System.clearProperty("ojp.server.sessionCleanup.timeoutMinutes");
+        System.clearProperty("ojp.server.sessionCleanup.intervalMinutes");
+    }
 }

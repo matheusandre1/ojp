@@ -208,9 +208,11 @@ public class SessionManagerImpl implements SessionManager {
 
     @Override
     public void updateSessionActivity(SessionInfo sessionInfo) {
-        Session session = this.sessionMap.get(sessionInfo.getSessionUUID());
-        if (session != null) {
-            session.updateActivity();
+        if (sessionInfo != null && sessionInfo.getSessionUUID() != null && !sessionInfo.getSessionUUID().isEmpty()) {
+            Session session = this.sessionMap.get(sessionInfo.getSessionUUID());
+            if (session != null) {
+                session.updateActivity();
+            }
         }
     }
 
