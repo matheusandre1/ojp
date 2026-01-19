@@ -18,6 +18,9 @@ import static org.mockito.Mockito.*;
  */
 class SessionCleanupTest {
 
+    private static final long TEST_TIMEOUT_MS = 100; // Timeout for test sessions
+    private static final long TEST_WAIT_MS = 150; // Wait time to exceed timeout
+
     private SessionManager sessionManager;
     private Connection mockConnection;
 
@@ -64,8 +67,8 @@ class SessionCleanupTest {
         assertFalse(session.isInactive(1000)); // 1 second timeout
 
         // Wait and check again
-        Thread.sleep(150);
-        assertTrue(session.isInactive(100)); // 100ms timeout
+        Thread.sleep(TEST_WAIT_MS);
+        assertTrue(session.isInactive(TEST_TIMEOUT_MS)); // 100ms timeout
         assertFalse(session.isInactive(1000)); // 1 second timeout
     }
 
@@ -149,13 +152,13 @@ class SessionCleanupTest {
         SessionInfo inactiveSession = sessionManager.createSession("inactive-client", mockConnection);
 
         // Make one session inactive by not updating its activity
-        Thread.sleep(150);
+        Thread.sleep(TEST_WAIT_MS);
 
         // Update activity on the active session only
         sessionManager.updateSessionActivity(activeSession);
 
         // Create cleanup task with 100ms timeout
-        SessionCleanupTask cleanupTask = new SessionCleanupTask(sessionManager, 100);
+        SessionCleanupTask cleanupTask = new SessionCleanupTask(sessionManager, TEST_TIMEOUT_MS);
 
         // Run cleanup
         cleanupTask.run();
@@ -182,7 +185,7 @@ class SessionCleanupTest {
         }
 
         // Create cleanup task with 100ms timeout
-        SessionCleanupTask cleanupTask = new SessionCleanupTask(sessionManager, 100);
+        SessionCleanupTask cleanupTask = new SessionCleanupTask(sessionManager, TEST_TIMEOUT_MS);
 
         // Run cleanup
         cleanupTask.run();
@@ -215,10 +218,10 @@ class SessionCleanupTest {
         }
 
         // Wait for all to become inactive
-        Thread.sleep(150);
+        Thread.sleep(TEST_WAIT_MS);
 
         // Create cleanup task with 100ms timeout
-        SessionCleanupTask cleanupTask = new SessionCleanupTask(sessionManager, 100);
+        SessionCleanupTask cleanupTask = new SessionCleanupTask(sessionManager, TEST_TIMEOUT_MS);
 
         // Run cleanup
         cleanupTask.run();

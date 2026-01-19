@@ -75,9 +75,12 @@ public class SessionCleanupTask implements Runnable {
                             session.isXA());
                     
                     SessionInfo sessionInfo = session.getSessionInfo();
-                    sessionManager.terminateSession(sessionInfo);
-                    
-                    log.info("Successfully terminated abandoned session: {}", session.getSessionUUID());
+                    if (sessionInfo != null) {
+                        sessionManager.terminateSession(sessionInfo);
+                        log.info("Successfully terminated abandoned session: {}", session.getSessionUUID());
+                    } else {
+                        log.warn("Could not terminate session {} - sessionInfo is null", session.getSessionUUID());
+                    }
                 } catch (Exception e) {
                     log.error("Error terminating abandoned session: {}", session.getSessionUUID(), e);
                 }
