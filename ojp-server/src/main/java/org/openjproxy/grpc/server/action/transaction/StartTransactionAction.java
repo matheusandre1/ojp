@@ -46,22 +46,29 @@ public class StartTransactionAction implements Action<SessionInfo, SessionInfo> 
 
         try {
             SessionInfo activeSessionInfo = sessionInfo;
+            Connection conn;
 
             // Start a session if none started yet.
             if (StringUtils.isEmpty(sessionInfo.getSessionUUID())) {
                 DataSource ds = context.getDatasourceMap().get(sessionInfo.getConnHash());
-                if (ds == null) { 
-                                   
+                if (ds == null) {
+                    throw new SQLException("No datasource found for connection hash: " + sessionInfo.getConnHash());
+                }
+
                 // Use ConnectionAcquisitionManager for better monitoring/timeout handling
-                
+                conn = ConnectionAcquisitionManager.acquireConnection(ds, sessionInfo.getConnHash());
                 activeSessionInfo = context.getSessionManager().createSession(sessionInfo.getClientUUID(), conn);
-                // Preserve targetServer from incoming request     
-            
-            Connection sessionConnection = context.getSessionManager().getConnection(activeSessionInfo);
-            if (sessionConnection == null) {
-                
+            } else {
+                conn = context.getSessionManager().getConnection(sessionInfo);
+                if (conn == null) {
+                    throw new SQLException("Connection not found for session: " + sessionInfo.getSessionUUID());
+                }
+            }
+
             // Start a transaction
-            sessionConnection.setAutoCommit(Boolean.FALSE);
+            if (conn.getAutoCommit()) {
+                conn.setAutoCommit(Boolean.FALSE);
+            }
 
             TransactionInfo transactionInfo = TransactionInfo.newBuilder()
                     .setTransactionStatus(TransactionStatus.TRX_ACTIVE)
