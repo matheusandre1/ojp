@@ -12,7 +12,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Integration tests for SQL session affinity feature with MySQL/MariaDB databases.
@@ -42,9 +42,9 @@ public class MySQLMariaDBSessionAffinityIntegrationTest {
             throws SQLException, ClassNotFoundException {
         // Skip tests based on database type
         if (url.toLowerCase().contains("mysql")) {
-            assumeFalse(!isMySQLTestEnabled, "MySQL tests are disabled");
+            assumeTrue(isMySQLTestEnabled, "MySQL tests are disabled");
         } else if (url.toLowerCase().contains("mariadb")) {
-            assumeFalse(!isMariaDBTestEnabled, "MariaDB tests are disabled");
+            assumeTrue(isMariaDBTestEnabled, "MariaDB tests are disabled");
         }
 
         log.info("Testing temporary table session affinity for MySQL/MariaDB: {}", url);
@@ -97,9 +97,9 @@ public class MySQLMariaDBSessionAffinityIntegrationTest {
             throws SQLException, ClassNotFoundException {
         // Skip tests based on database type
         if (url.toLowerCase().contains("mysql")) {
-            assumeFalse(!isMySQLTestEnabled, "MySQL tests are disabled");
+            assumeTrue(isMySQLTestEnabled, "MySQL tests are disabled");
         } else if (url.toLowerCase().contains("mariadb")) {
-            assumeFalse(!isMariaDBTestEnabled, "MariaDB tests are disabled");
+            assumeTrue(isMariaDBTestEnabled, "MariaDB tests are disabled");
         }
 
         log.info("Testing session variable affinity for MySQL/MariaDB: {}", url);
@@ -137,9 +137,9 @@ public class MySQLMariaDBSessionAffinityIntegrationTest {
             throws SQLException, ClassNotFoundException {
         // Skip tests based on database type
         if (url.toLowerCase().contains("mysql")) {
-            assumeFalse(!isMySQLTestEnabled, "MySQL tests are disabled");
+            assumeTrue(isMySQLTestEnabled, "MySQL tests are disabled");
         } else if (url.toLowerCase().contains("mariadb")) {
-            assumeFalse(!isMariaDBTestEnabled, "MariaDB tests are disabled");
+            assumeTrue(isMariaDBTestEnabled, "MariaDB tests are disabled");
         }
 
         log.info("Testing complex temporary table operations for MySQL/MariaDB: {}", url);
@@ -210,9 +210,9 @@ public class MySQLMariaDBSessionAffinityIntegrationTest {
             throws SQLException, ClassNotFoundException {
         // Skip tests based on database type
         if (url.toLowerCase().contains("mysql")) {
-            assumeFalse(!isMySQLTestEnabled, "MySQL tests are disabled");
+            assumeTrue(isMySQLTestEnabled, "MySQL tests are disabled");
         } else if (url.toLowerCase().contains("mariadb")) {
-            assumeFalse(!isMariaDBTestEnabled, "MariaDB tests are disabled");
+            assumeTrue(isMariaDBTestEnabled, "MariaDB tests are disabled");
         }
 
         log.info("Testing temporary table persistence across transactions for MySQL/MariaDB: {}", url);
