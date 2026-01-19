@@ -36,5 +36,7 @@ public interface SessionManager {
     void waitLobStreamsConsumption(SessionInfo sessionInfo);
     void registerAttr(SessionInfo sessionInfo, String key, Object value);
     Object getAttr(SessionInfo sessionInfo, String key);
+    void updateSessionActivity(SessionInfo sessionInfo);
+    Collection<Session> getAllSessions();
 
 }

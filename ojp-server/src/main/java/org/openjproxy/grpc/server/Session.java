@@ -45,6 +45,10 @@ public class Session {
     private Map<String, Object> attrMap;
     private boolean closed;
     private int transactionTimeout = 0;
+    @Getter
+    private volatile long lastActivityTime;
+    @Getter
+    private final long creationTime;
 
     public Session(Connection connection, String connectionHash, String clientUUID) {
         this(connection, connectionHash, clientUUID, false, null);
@@ -58,6 +62,8 @@ public class Session {
         this.xaConnection = xaConnection;
         this.sessionUUID = UUID.randomUUID().toString();
         this.closed = false;
+        this.creationTime = System.currentTimeMillis();
+        this.lastActivityTime = this.creationTime;
         this.resultSetMap = new ConcurrentHashMap<>();
         this.statementMap = new ConcurrentHashMap<>();
         this.preparedStatementMap = new ConcurrentHashMap<>();
@@ -284,5 +290,34 @@ public class Session {
 
     public Collection<Object> getAllLobs() {
         return this.lobMap.values();
+    }
+
+    /**
+     * Updates the last activity time for this session to the current time.
+     * This method should be called on every operation that uses this session
+     * to prevent premature cleanup of active sessions.
+     */
+    public void updateActivity() {
+        this.lastActivityTime = System.currentTimeMillis();
+    }
+
+    /**
+     * Checks if the session has been inactive for longer than the specified timeout.
+     * 
+     * @param timeoutMillis the inactivity timeout in milliseconds
+     * @return true if the session has been inactive for longer than the timeout, false otherwise
+     */
+    public boolean isInactive(long timeoutMillis) {
+        long inactiveDuration = System.currentTimeMillis() - this.lastActivityTime;
+        return inactiveDuration > timeoutMillis;
+    }
+
+    /**
+     * Gets the duration in milliseconds since the last activity.
+     * 
+     * @return milliseconds since last activity
+     */
+    public long getInactiveDuration() {
+        return System.currentTimeMillis() - this.lastActivityTime;
     }
 }
