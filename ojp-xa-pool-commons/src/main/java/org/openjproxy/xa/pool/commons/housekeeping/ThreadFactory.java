@@ -46,12 +46,36 @@ public class ThreadFactory {
     private static final boolean VIRTUAL_THREADS_AVAILABLE;
     private static final boolean USE_VIRTUAL_THREADS;
     
+    // Cache reflection objects for performance
+    private static final Method OF_VIRTUAL_METHOD;
+    private static final Class<?> BUILDER_OF_VIRTUAL_INTERFACE;
+    private static final Method NAME_METHOD;
+    private static final Method FACTORY_METHOD;
+    
     static {
         VIRTUAL_THREADS_AVAILABLE = checkVirtualThreadSupport();
         
         // Allow disabling virtual threads via system property
         String property = System.getProperty("ojp.xa.useVirtualThreads", "true");
         USE_VIRTUAL_THREADS = VIRTUAL_THREADS_AVAILABLE && Boolean.parseBoolean(property);
+        
+        // Cache reflection objects if virtual threads are available
+        if (VIRTUAL_THREADS_AVAILABLE) {
+            try {
+                OF_VIRTUAL_METHOD = Thread.class.getMethod("ofVirtual");
+                BUILDER_OF_VIRTUAL_INTERFACE = Class.forName("java.lang.Thread$Builder$OfVirtual");
+                NAME_METHOD = BUILDER_OF_VIRTUAL_INTERFACE.getMethod("name", String.class, long.class);
+                FACTORY_METHOD = BUILDER_OF_VIRTUAL_INTERFACE.getMethod("factory");
+            } catch (ReflectiveOperationException e) {
+                // Should not happen since we already checked availability
+                throw new ExceptionInInitializerError(e);
+            }
+        } else {
+            OF_VIRTUAL_METHOD = null;
+            BUILDER_OF_VIRTUAL_INTERFACE = null;
+            NAME_METHOD = null;
+            FACTORY_METHOD = null;
+        }
         
         if (VIRTUAL_THREADS_AVAILABLE) {
             if (USE_VIRTUAL_THREADS) {
@@ -76,8 +100,8 @@ public class ThreadFactory {
             // Use Thread.class directly instead of Class.forName()
             Thread.class.getMethod("ofVirtual");
             return true;
-        } catch (Exception e) {
-            // Method not found or other error - virtual threads not available
+        } catch (NoSuchMethodException e) {
+            // Method not found - virtual threads not available
             return false;
         }
     }
@@ -110,8 +134,7 @@ public class ThreadFactory {
     /**
      * Creates a virtual thread-based scheduled executor (Java 21+).
      * <p>
-     * Uses reflection to invoke Thread.ofVirtual() to maintain compatibility
-     * with Java 11 compilation target.
+     * Uses cached reflection objects to improve performance.
      * </p>
      *
      * @param threadName the name prefix for virtual threads
@@ -119,23 +142,15 @@ public class ThreadFactory {
      */
     private static ScheduledExecutorService createVirtualThreadExecutor(String threadName) {
         try {
-            // Get Thread.ofVirtual() method - use Thread.class directly
-            Method ofVirtualMethod = Thread.class.getMethod("ofVirtual");
-            
             // Call Thread.ofVirtual() to get a Builder.OfVirtual instance
-            Object virtualThreadBuilder = ofVirtualMethod.invoke(null);
-            
-            // Get the Builder.OfVirtual interface
-            Class<?> builderInterface = Class.forName("java.lang.Thread$Builder$OfVirtual");
+            Object virtualThreadBuilder = OF_VIRTUAL_METHOD.invoke(null);
             
             // Call name(String prefix, long start) to name the threads
-            Method nameMethod = builderInterface.getMethod("name", String.class, long.class);
-            virtualThreadBuilder = nameMethod.invoke(virtualThreadBuilder, threadName + "-", 0L);
+            virtualThreadBuilder = NAME_METHOD.invoke(virtualThreadBuilder, threadName + "-", 0L);
             
             // Call factory() to get a ThreadFactory
-            Method factoryMethod = builderInterface.getMethod("factory");
             java.util.concurrent.ThreadFactory threadFactory = 
-                (java.util.concurrent.ThreadFactory) factoryMethod.invoke(virtualThreadBuilder);
+                (java.util.concurrent.ThreadFactory) FACTORY_METHOD.invoke(virtualThreadBuilder);
             
             // Create a single-threaded scheduled executor with the virtual thread factory
             ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(threadFactory);
@@ -143,7 +158,7 @@ public class ThreadFactory {
             log.debug("Created virtual thread-based scheduled executor: {}", threadName);
             return executor;
             
-        } catch (Exception e) {
+        } catch (ReflectiveOperationException e) {
             // Fallback to platform threads if virtual thread creation fails
             log.warn("Failed to create virtual thread executor, falling back to platform threads", e);
             return createPlatformThreadExecutor(threadName);
