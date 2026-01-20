@@ -133,17 +133,6 @@ class VirtualThreadTest {
                 "Thread name should match our housekeeping thread");
     }
     
-    /**
-     * Checks if virtual threads are supported in the current Java version.
-     * Virtual threads were introduced as a preview feature in Java 19 and
-     * became a standard feature in Java 21 (JEP 444).
-     *
-     * @return true if Thread.ofVirtual() method is available
-     */
-    private boolean checkIfVirtualThread() {
-        return ThreadFactory.areVirtualThreadsAvailable();
-    }
-    
     @Test
     @DisplayName("Verify single thread per pool instance")
     void testSingleThreadPerPoolInstance() throws Exception {

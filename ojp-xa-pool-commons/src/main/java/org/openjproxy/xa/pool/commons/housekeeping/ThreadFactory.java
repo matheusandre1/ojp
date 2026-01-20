@@ -73,9 +73,9 @@ public class ThreadFactory {
      */
     private static boolean checkVirtualThreadSupport() {
         try {
-            Class<?> threadClass = Class.forName("java.lang.Thread");
-            Method ofVirtualMethod = threadClass.getMethod("ofVirtual");
-            return ofVirtualMethod != null;
+            // Use Thread.class directly instead of Class.forName()
+            Thread.class.getMethod("ofVirtual");
+            return true;
         } catch (Exception e) {
             // Method not found or other error - virtual threads not available
             return false;
@@ -119,9 +119,8 @@ public class ThreadFactory {
      */
     private static ScheduledExecutorService createVirtualThreadExecutor(String threadName) {
         try {
-            // Get Thread.ofVirtual() method
-            Class<?> threadClass = Class.forName("java.lang.Thread");
-            Method ofVirtualMethod = threadClass.getMethod("ofVirtual");
+            // Get Thread.ofVirtual() method - use Thread.class directly
+            Method ofVirtualMethod = Thread.class.getMethod("ofVirtual");
             
             // Call Thread.ofVirtual() to get a Builder.OfVirtual instance
             Object virtualThreadBuilder = ofVirtualMethod.invoke(null);
