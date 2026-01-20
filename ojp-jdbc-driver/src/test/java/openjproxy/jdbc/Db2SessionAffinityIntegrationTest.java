@@ -3,6 +3,9 @@ package openjproxy.jdbc;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Assert;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvFileSource;
 
@@ -18,11 +21,48 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
  * Integration tests for SQL session affinity feature with DB2 database.
  * Tests that declared global temporary tables work correctly across multiple
  * requests by ensuring session affinity.
+ * 
+ * <p><strong>DB2-Specific Test Design:</strong></p>
+ * <p>Unlike other database integration tests, DB2 tests use a unique approach due to
+ * DB2's declared global temporary table semantics:</p>
+ * 
+ * <ul>
+ *   <li><strong>Session Persistence:</strong> DB2's DECLARE GLOBAL TEMPORARY TABLE creates
+ *       tables that persist for the entire database session, not just a single transaction.</li>
+ *   <li><strong>OJP Session Affinity:</strong> When using the OJP proxy URL 
+ *       (jdbc:ojp[localhost:1059]_db2://...), the SQL pattern detector triggers session 
+ *       affinity for DECLARE GLOBAL TEMPORARY TABLE statements. This binds all subsequent 
+ *       operations to the same OJP session UUID, which in turn uses the same underlying 
+ *       DB2 connection/session.</li>
+ *   <li><strong>Shared State Across Tests:</strong> Because all test methods share the same
+ *       DB2 session (via OJP session affinity), temporary tables created in one test remain
+ *       visible in subsequent tests.</li>
+ * </ul>
+ * 
+ * <p><strong>Solution:</strong> Tests are ordered using {@code @Order} annotations and reuse
+ * a single temp table name ("temp_session_test"). The first test creates the table, and
+ * subsequent tests simply clear the existing data with DELETE before using it. This approach:</p>
+ * <ul>
+ *   <li>Avoids SQLCODE=-286 (duplicate table name) errors</li>
+ *   <li>Still properly tests session affinity behavior</li>
+ *   <li>Reflects the actual usage pattern in production where the same session can be
+ *       reused across multiple operations</li>
+ * </ul>
+ * 
+ * @see org.openjproxy.grpc.server.sql.SqlSessionAffinityDetector
  */
 @Slf4j
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class Db2SessionAffinityIntegrationTest {
 
     private static boolean isTestDisabled;
+    
+    /**
+     * Shared table name used across all test methods.
+     * This is possible because OJP session affinity ensures all tests
+     * use the same underlying DB2 session where the temp table persists.
+     */
+    private static final String SHARED_TABLE_NAME = "temp_session_test";
 
     @BeforeAll
     public static void checkTestConfiguration() {
@@ -30,10 +70,14 @@ public class Db2SessionAffinityIntegrationTest {
     }
 
     /**
-     * Tests that declared global temporary tables work across multiple SQL statements.
-     * This verifies that DECLARE GLOBAL TEMPORARY TABLE triggers session affinity
-     * and subsequent operations use the same session/connection.
+     * Test 1: Creates the temporary table and verifies basic INSERT/SELECT operations.
+     * This test runs first and creates the DECLARE GLOBAL TEMPORARY TABLE that will
+     * be reused by subsequent tests in the same session.
+     * 
+     * <p>This test verifies that DECLARE GLOBAL TEMPORARY TABLE triggers session affinity
+     * and subsequent operations use the same session/connection.</p>
      */
+    @Order(1)
     @ParameterizedTest
     @CsvFileSource(resources = "/db2_connection.csv")
     public void testTemporaryTableSessionAffinity(String driverClass, String url, String user, String pwd) 
@@ -43,21 +87,19 @@ public class Db2SessionAffinityIntegrationTest {
         log.info("Testing temporary table session affinity for DB2: {}", url);
 
         Connection conn = DriverManager.getConnection(url, user, pwd);
-
-        // Use fixed table name - DB2 temp tables are session-scoped
-        // If table already exists from previous test in same session, we'll handle the error
-        String tableName = "temp_session_test";
         
         try (Statement stmt = conn.createStatement()) {
             // Try to create declared global temporary table (this should trigger session affinity)
-            log.debug("Creating DB2 declared global temporary table: {}", tableName);
+            log.debug("Creating DB2 declared global temporary table: {}", SHARED_TABLE_NAME);
             try {
-                stmt.execute("DECLARE GLOBAL TEMPORARY TABLE " + tableName + " (id INT, value VARCHAR(100)) ON COMMIT PRESERVE ROWS");
+                stmt.execute("DECLARE GLOBAL TEMPORARY TABLE " + SHARED_TABLE_NAME + 
+                    " (id INT, value VARCHAR(100)) ON COMMIT PRESERVE ROWS");
             } catch (SQLException e) {
                 // If table already exists (SQLSTATE 42727), delete existing data and continue
+                // This can happen if tests are run multiple times in the same JVM session
                 if ("42727".equals(e.getSQLState())) {
-                    log.debug("Temp table already exists, clearing existing data");
-                    stmt.execute("DELETE FROM SESSION." + tableName);
+                    log.debug("Temp table already exists from previous run, clearing existing data");
+                    stmt.execute("DELETE FROM SESSION." + SHARED_TABLE_NAME);
                 } else {
                     throw e;
                 }
@@ -65,11 +107,11 @@ public class Db2SessionAffinityIntegrationTest {
 
             // Insert data into temporary table (should use same session)
             log.debug("Inserting data into temporary table");
-            stmt.execute("INSERT INTO SESSION." + tableName + " VALUES (1, 'test_value')");
+            stmt.execute("INSERT INTO SESSION." + SHARED_TABLE_NAME + " VALUES (1, 'test_value')");
 
             // Query temporary table (should use same session)
             log.debug("Querying temporary table");
-            ResultSet rs = stmt.executeQuery("SELECT id, value FROM SESSION." + tableName);
+            ResultSet rs = stmt.executeQuery("SELECT id, value FROM SESSION." + SHARED_TABLE_NAME);
             
             // Verify data was inserted and retrieved successfully
             Assert.assertTrue("Should have at least one row in temporary table", rs.next());
@@ -89,8 +131,14 @@ public class Db2SessionAffinityIntegrationTest {
     }
 
     /**
-     * Tests that multiple temporary table operations work correctly.
+     * Test 2: Reuses the existing temp table for complex operations (multiple inserts, update, query).
+     * This test runs second and demonstrates that the temp table created in test 1
+     * is still accessible in the same DB2 session.
+     * 
+     * <p>The test clears existing data first, then performs INSERT, UPDATE, and SELECT
+     * operations to verify session affinity is maintained across complex operations.</p>
      */
+    @Order(2)
     @ParameterizedTest
     @CsvFileSource(resources = "/db2_connection.csv")
     public void testComplexTemporaryTableOperations(String driverClass, String url, String user, String pwd) 
@@ -100,21 +148,20 @@ public class Db2SessionAffinityIntegrationTest {
         log.info("Testing complex temporary table operations for DB2: {}", url);
 
         Connection conn = DriverManager.getConnection(url, user, pwd);
-
-        // Use fixed table name - DB2 temp tables are session-scoped
-        // If table already exists from previous test in same session, we'll handle the error
-        String tableName = "temp_complex";
         
         try (Statement stmt = conn.createStatement()) {
-            // Try to create temporary table
-            log.debug("Creating complex temp table: {}", tableName);
+            // Clear any existing data from previous test
+            // The table should already exist from test 1 due to session persistence
+            log.debug("Clearing data from shared temp table: {}", SHARED_TABLE_NAME);
             try {
-                stmt.execute("DECLARE GLOBAL TEMPORARY TABLE " + tableName + " (id INT NOT NULL, name VARCHAR(100), amount DECIMAL(10,2)) ON COMMIT PRESERVE ROWS");
+                stmt.execute("DELETE FROM SESSION." + SHARED_TABLE_NAME);
             } catch (SQLException e) {
-                // If table already exists (SQLSTATE 42727), delete existing data and continue
-                if ("42727".equals(e.getSQLState())) {
-                    log.debug("Temp table already exists, clearing existing data");
-                    stmt.execute("DELETE FROM SESSION." + tableName);
+                // If table doesn't exist (tests running out of order or individually),
+                // create it now
+                if ("42704".equals(e.getSQLState())) {
+                    log.debug("Temp table doesn't exist, creating it");
+                    stmt.execute("DECLARE GLOBAL TEMPORARY TABLE " + SHARED_TABLE_NAME + 
+                        " (id INT, value VARCHAR(100)) ON COMMIT PRESERVE ROWS");
                 } else {
                     throw e;
                 }
@@ -122,34 +169,30 @@ public class Db2SessionAffinityIntegrationTest {
 
             // Insert multiple rows
             log.debug("Inserting multiple rows");
-            stmt.execute("INSERT INTO SESSION." + tableName + " VALUES (1, 'Alice', 100.50)");
-            stmt.execute("INSERT INTO SESSION." + tableName + " VALUES (2, 'Bob', 200.75)");
-            stmt.execute("INSERT INTO SESSION." + tableName + " VALUES (3, 'Charlie', 150.25)");
+            stmt.execute("INSERT INTO SESSION." + SHARED_TABLE_NAME + " VALUES (1, 'Alice')");
+            stmt.execute("INSERT INTO SESSION." + SHARED_TABLE_NAME + " VALUES (2, 'Bob')");
+            stmt.execute("INSERT INTO SESSION." + SHARED_TABLE_NAME + " VALUES (3, 'Charlie')");
 
             // Update a row
             log.debug("Updating a row");
-            stmt.executeUpdate("UPDATE SESSION." + tableName + " SET amount = amount + 50.00 WHERE id = 2");
+            stmt.executeUpdate("UPDATE SESSION." + SHARED_TABLE_NAME + " SET value = 'Robert' WHERE id = 2");
 
             // Query and verify
             log.debug("Querying temp table");
-            ResultSet rs = stmt.executeQuery("SELECT id, name, amount FROM SESSION." + tableName + " ORDER BY id");
+            ResultSet rs = stmt.executeQuery("SELECT id, value FROM SESSION." + SHARED_TABLE_NAME + " ORDER BY id");
             
             int rowCount = 0;
             while (rs.next()) {
                 rowCount++;
                 int id = rs.getInt("id");
-                String name = rs.getString("name");
-                double amount = rs.getDouble("amount");
+                String value = rs.getString("value");
                 
                 if (id == 1) {
-                    Assert.assertEquals("Alice", name);
-                    Assert.assertEquals(100.50, amount, 0.01);
+                    Assert.assertEquals("Alice", value);
                 } else if (id == 2) {
-                    Assert.assertEquals("Bob", name);
-                    Assert.assertEquals(250.75, amount, 0.01); // Updated
+                    Assert.assertEquals("Robert", value); // Updated
                 } else if (id == 3) {
-                    Assert.assertEquals("Charlie", name);
-                    Assert.assertEquals(150.25, amount, 0.01);
+                    Assert.assertEquals("Charlie", value);
                 }
             }
             
@@ -164,8 +207,14 @@ public class Db2SessionAffinityIntegrationTest {
     }
 
     /**
-     * Tests that temp table persists within same session across transactions.
+     * Test 3: Verifies that the temp table persists within the same session across transactions.
+     * This test runs third and demonstrates that commit/rollback operations don't affect
+     * the temp table's existence (only its data, based on ON COMMIT PRESERVE ROWS).
+     * 
+     * <p>The test clears existing data, inserts new data in a transaction, commits,
+     * and then verifies the data is still accessible in a subsequent transaction.</p>
      */
+    @Order(3)
     @ParameterizedTest
     @CsvFileSource(resources = "/db2_connection.csv")
     public void testTemporaryTablePersistenceAcrossTransactions(String driverClass, String url, String user, String pwd) 
@@ -175,20 +224,20 @@ public class Db2SessionAffinityIntegrationTest {
         log.info("Testing temporary table persistence across transactions for DB2: {}", url);
 
         Connection conn = DriverManager.getConnection(url, user, pwd);
-
-        // Use fixed table name - DB2 temp tables are session-scoped
-        // If table already exists from previous test in same session, we'll handle the error
-        String tableName = "temp_persist";
         
         try (Statement stmt = conn.createStatement()) {
-            // Try to create temp table
+            // Clear any existing data from previous tests
+            // The table should already exist from test 1 due to session persistence
+            log.debug("Clearing data from shared temp table: {}", SHARED_TABLE_NAME);
             try {
-                stmt.execute("DECLARE GLOBAL TEMPORARY TABLE " + tableName + " (id INT, data VARCHAR(100)) ON COMMIT PRESERVE ROWS");
+                stmt.execute("DELETE FROM SESSION." + SHARED_TABLE_NAME);
             } catch (SQLException e) {
-                // If table already exists (SQLSTATE 42727), delete existing data and continue
-                if ("42727".equals(e.getSQLState())) {
-                    log.debug("Temp table already exists, clearing existing data");
-                    stmt.execute("DELETE FROM SESSION." + tableName);
+                // If table doesn't exist (tests running out of order or individually),
+                // create it now
+                if ("42704".equals(e.getSQLState())) {
+                    log.debug("Temp table doesn't exist, creating it");
+                    stmt.execute("DECLARE GLOBAL TEMPORARY TABLE " + SHARED_TABLE_NAME + 
+                        " (id INT, value VARCHAR(100)) ON COMMIT PRESERVE ROWS");
                 } else {
                     throw e;
                 }
@@ -196,14 +245,14 @@ public class Db2SessionAffinityIntegrationTest {
 
             // Start transaction and insert
             conn.setAutoCommit(false);
-            stmt.execute("INSERT INTO SESSION." + tableName + " VALUES (1, 'in_transaction')");
+            stmt.execute("INSERT INTO SESSION." + SHARED_TABLE_NAME + " VALUES (1, 'in_transaction')");
             conn.commit();
 
-            // Start another transaction and query (should still see the temp table)
+            // Start another transaction and query (should still see the temp table and data)
             conn.setAutoCommit(false);
-            ResultSet rs = stmt.executeQuery("SELECT * FROM SESSION." + tableName + " WHERE id = 1");
+            ResultSet rs = stmt.executeQuery("SELECT * FROM SESSION." + SHARED_TABLE_NAME + " WHERE id = 1");
             Assert.assertTrue("Should find row inserted in previous transaction", rs.next());
-            Assert.assertEquals("Data should match", "in_transaction", rs.getString("data"));
+            Assert.assertEquals("Data should match", "in_transaction", rs.getString("value"));
             rs.close();
             conn.commit();
 
