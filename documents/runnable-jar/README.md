@@ -4,7 +4,7 @@ This guide explains how to build and run the OJP Server as a standalone runnable
 
 ## Prerequisites
 
-- **Java 22 or higher** - Required for building and running OJP Server
+- **Java 21 or higher** - Required for building and running OJP Server
 - **Maven 3.9+** - Required for building the runnable JAR from source
 - **Git** - Required for cloning the repository (if building from source)
 
@@ -16,11 +16,11 @@ Verify your Java version before proceeding:
 java -version
 ```
 
-Expected output (version should be 22 or higher):
+Expected output (version should be 21 or higher):
 ```
-openjdk version "22.0.1" 2024-04-16
-OpenJDK Runtime Environment (build 22.0.1+8-16)
-OpenJDK 64-Bit Server VM (build 22.0.1+8-16, mixed mode, sharing)
+openjdk version "21.0.9" 2024-10-21
+OpenJDK Runtime Environment (build 21.0.9+10)
+OpenJDK 64-Bit Server VM (build 21.0.9+10, mixed mode, sharing)
 ```
 
 ## Building the Runnable JAR from Source
@@ -276,15 +276,15 @@ jdbc:ojp[localhost:1059]_h2:~/test
 
 ### Java Version Issues
 
-**Problem**: `error: invalid target release: 22`
+**Problem**: `error: invalid target release: 21`
 
-**Solution**: Ensure you're using Java 22 or higher:
+**Solution**: Ensure you're using Java 21 or higher:
 ```bash
 java -version
 ```
 
 If using a different Java version, either:
-- Upgrade to Java 22, or
+- Upgrade to Java 21 or higher, or
 - Temporarily modify `ojp-server/pom.xml` to use your Java version (change `maven.compiler.source` and `maven.compiler.target`)
 
 ### Build Issues
