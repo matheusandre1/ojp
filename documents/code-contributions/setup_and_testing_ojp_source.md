@@ -1,6 +1,8 @@
 
 ### Prerequisites
-- Java 22 or higher
+- **For OJP JDBC Driver**: Java 11 or higher
+- **For OJP Server**: Java 21 or higher
+- **For Development/Testing**: Java 22 or higher (recommended)
 - Maven 3.9+
 - Docker (for running databases and OJP server)
 

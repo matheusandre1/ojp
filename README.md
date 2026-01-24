@@ -30,6 +30,12 @@ _"The only open-source JDBC Type 3 driver globally, this project introduces a tr
 OJP protects your databases from overwhelming connection storms by acting as a smart backpressure mechanism. Instead of every application instance opening and holding connections, OJP orchestrates and optimizes database access through intelligent pooling, query flow control, and multi-database support. With minimal configuration changes, you replace native JDBC drivers gaining connection resilience, and safer scalability. Elastic scaling becomes simpler without putting your database at risk.
 
 ---
+## Requirements
+
+- **OJP JDBC Driver**: Java 11 or higher
+- **OJP Server**: Java 21 or higher
+
+---
 ## Quick Start
 
 Get OJP running in under 5 minutes:

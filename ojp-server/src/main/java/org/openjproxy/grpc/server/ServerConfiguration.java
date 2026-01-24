@@ -52,6 +52,11 @@ public class ServerConfiguration {
     private static final String SCHEMA_LOAD_TIMEOUT_SECONDS_KEY = "ojp.sql.enhancer.schema.load.timeout.seconds";
     private static final String SCHEMA_FALLBACK_ENABLED_KEY = "ojp.sql.enhancer.schema.fallback.enabled";
     
+    // Session cleanup configuration keys
+    private static final String SESSION_CLEANUP_ENABLED_KEY = "ojp.server.sessionCleanup.enabled";
+    private static final String SESSION_TIMEOUT_MINUTES_KEY = "ojp.server.sessionCleanup.timeoutMinutes";
+    private static final String SESSION_CLEANUP_INTERVAL_MINUTES_KEY = "ojp.server.sessionCleanup.intervalMinutes";
+    
 
     // Default values
     public static final int DEFAULT_SERVER_PORT = CommonConstants.DEFAULT_PORT_NUMBER;
@@ -92,6 +97,11 @@ public class ServerConfiguration {
     public static final long DEFAULT_SCHEMA_REFRESH_INTERVAL_HOURS = 24;
     public static final long DEFAULT_SCHEMA_LOAD_TIMEOUT_SECONDS = 30;
     public static final boolean DEFAULT_SCHEMA_FALLBACK_ENABLED = true;
+    
+    // Session cleanup default values
+    public static final boolean DEFAULT_SESSION_CLEANUP_ENABLED = true; // Enable session cleanup by default
+    public static final long DEFAULT_SESSION_TIMEOUT_MINUTES = 30; // 30 minutes session timeout
+    public static final long DEFAULT_SESSION_CLEANUP_INTERVAL_MINUTES = 5; // Run cleanup every 5 minutes
     
     // XA pooling default values
     public static final boolean DEFAULT_XA_POOLING_ENABLED = true; // Enable XA pooling by default
@@ -138,6 +148,11 @@ public class ServerConfiguration {
     private final long schemaLoadTimeoutSeconds;
     private final boolean schemaFallbackEnabled;
     
+    // Session cleanup configuration
+    private final boolean sessionCleanupEnabled;
+    private final long sessionTimeoutMinutes;
+    private final long sessionCleanupIntervalMinutes;
+    
 
     public ServerConfiguration() {
         this.serverPort = getIntProperty(SERVER_PORT_KEY, DEFAULT_SERVER_PORT);
@@ -175,6 +190,11 @@ public class ServerConfiguration {
         this.schemaRefreshIntervalHours = getLongProperty(SCHEMA_REFRESH_INTERVAL_HOURS_KEY, DEFAULT_SCHEMA_REFRESH_INTERVAL_HOURS);
         this.schemaLoadTimeoutSeconds = getLongProperty(SCHEMA_LOAD_TIMEOUT_SECONDS_KEY, DEFAULT_SCHEMA_LOAD_TIMEOUT_SECONDS);
         this.schemaFallbackEnabled = getBooleanProperty(SCHEMA_FALLBACK_ENABLED_KEY, DEFAULT_SCHEMA_FALLBACK_ENABLED);
+        
+        // Session cleanup configuration
+        this.sessionCleanupEnabled = getBooleanProperty(SESSION_CLEANUP_ENABLED_KEY, DEFAULT_SESSION_CLEANUP_ENABLED);
+        this.sessionTimeoutMinutes = getLongProperty(SESSION_TIMEOUT_MINUTES_KEY, DEFAULT_SESSION_TIMEOUT_MINUTES);
+        this.sessionCleanupIntervalMinutes = getLongProperty(SESSION_CLEANUP_INTERVAL_MINUTES_KEY, DEFAULT_SESSION_CLEANUP_INTERVAL_MINUTES);
         
 
         logConfigurationSummary();
@@ -285,6 +305,10 @@ public class ServerConfiguration {
         logger.info("  SQL Enhancer Cache Enabled: {}", sqlEnhancerCacheEnabled);
         logger.info("  SQL Enhancer Cache Size: {}", sqlEnhancerCacheSize);
         logger.info("  SQL Enhancer Fail On Validation Error: {}", sqlEnhancerFailOnValidationError);
+        logger.info("Session Cleanup Configuration:");
+        logger.info("  Session Cleanup Enabled: {}", sessionCleanupEnabled);
+        logger.info("  Session Timeout: {} minutes", sessionTimeoutMinutes);
+        logger.info("  Cleanup Interval: {} minutes", sessionCleanupIntervalMinutes);
     }
 
     // Getters
@@ -418,6 +442,18 @@ public class ServerConfiguration {
     
     public boolean isSchemaFallbackEnabled() {
         return schemaFallbackEnabled;
+    }
+    
+    public boolean isSessionCleanupEnabled() {
+        return sessionCleanupEnabled;
+    }
+    
+    public long getSessionTimeoutMinutes() {
+        return sessionTimeoutMinutes;
+    }
+    
+    public long getSessionCleanupIntervalMinutes() {
+        return sessionCleanupIntervalMinutes;
     }
     
 }
