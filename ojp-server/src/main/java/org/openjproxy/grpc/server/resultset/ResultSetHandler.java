@@ -44,8 +44,6 @@ public class ResultSetHandler {
         ResultSet rs = context.getSessionManager().getResultSet(session, resultSetUUID);
         int columnCount = rs.getMetaData().getColumnCount();
 
-        this.collectResultSetMetadata(context, session, resultSetUUID, rs);
-
         // Fetch result set metadata for the first block
         List<String> labels = new ArrayList<>();
         for (int i = 0; i < columnCount; i++) {
@@ -57,10 +55,15 @@ public class ResultSetHandler {
         int row = 0;
         boolean justSent = false;
         String resultSetMode = "";
+        boolean resultSetMetadataCollected = false;
 
         DbName dbName = context.getDbNameMap().get(session.getConnHash());
 
         forEachRow: while (rs.next()) {
+            if (DbName.DB2.equals(dbName) && !resultSetMetadataCollected) {
+                this.collectResultSetMetadata(context, session, resultSetUUID, rs);
+                resultSetMetadataCollected = true;
+            }
             justSent = false;
             row++;
             Object[] rowValues = new Object[columnCount];

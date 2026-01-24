@@ -12,6 +12,7 @@ import org.openjproxy.grpc.server.action.ValueAction;
 import org.openjproxy.grpc.server.action.session.SessionConnectionAction;
 import org.openjproxy.grpc.server.action.session.SessionConnectionRequest;
 import org.openjproxy.grpc.server.resultset.ResultSetHandler;
+import org.openjproxy.grpc.server.sql.SqlSessionAffinityDetector;
 import org.openjproxy.grpc.server.statement.StatementFactory;
 import org.openjproxy.grpc.server.action.ActionContext;
 import org.openjproxy.grpc.server.sql.SqlEnhancerEngine;
@@ -53,21 +54,25 @@ public class ExecuteQueryInternalAction
         StreamObserver<OpResult> responseObserver = internalRequest.getResponseObserver();
 
         ConnectionSessionDTO dto;
+        // Check if SQL requires session affinity (temporary tables, session variables,
+        // etc.)
+        // Note: All queries already create sessions (for result set handling), but this
+        // ensures session affinity is properly enforced even for queries that don't
+        // return results
+        boolean requiresSessionAffinity = SqlSessionAffinityDetector.requiresSessionAffinity(request.getSql());
+
         SessionConnectionRequest sessionConnRequest = SessionConnectionRequest.builder()
                 .context(context)
                 .sessionInfo(request.getSession())
-                .startSessionIfNone(true)
+                .startSessionIfNone(true || requiresSessionAffinity)
                 .build();
         dto = SessionConnectionAction.getInstance().execute(sessionConnRequest);
 
         long enhancementStartTime = System.currentTimeMillis();
 
         String sql = request.getSql();
-        if (context.getServerConfiguration().isSqlEnhancerEnabled()) {
-            SqlEnhancerEngine sqlEnhancerEngine = new SqlEnhancerEngine(
-                    context.getServerConfiguration().isSqlEnhancerEnabled());
-
-            SqlEnhancementResult result = sqlEnhancerEngine.enhance(request.getSql());
+        if (context.getSqlEnhancerEngine().isEnabled()) {
+            SqlEnhancementResult result = context.getSqlEnhancerEngine().enhance(request.getSql());
             sql = result.getEnhancedSql();
 
             long enhancementDuration = System.currentTimeMillis() - enhancementStartTime;
