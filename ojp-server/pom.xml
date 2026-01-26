@@ -257,7 +257,7 @@
                 <version>${jib.plugin.version}</version>
                 <configuration>
                     <from>
-                        <image>eclipse-temurin:22-jre</image>
+                        <image>eclipse-temurin:22-jre-alpine</image>
                     </from>
                     <to>
                         <image>rrobetti/ojp:0.3.2-snapshot</image>
